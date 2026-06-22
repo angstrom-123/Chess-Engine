@@ -9,7 +9,13 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 find_package(Python3 COMPONENTS Development REQUIRED)
 
 set(SOURCES
-    src/api.cpp 
+    src/bitboard.cpp 
+    src/board.cpp 
+    src/move.cpp
+    src/core.cpp 
+    src/searcher.cpp
+    src/attackTable.cpp
+    src/boardState.cpp
     src/pythonModule.cpp
 )
 
@@ -21,9 +27,12 @@ target_include_directories(chess
         $<INSTALL_INTERFACE:include>
     PRIVATE
         ${Python3_INCLUDE_DIRS}
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
 target_link_libraries(chess PRIVATE ${Python3_LIBRARIES})
+
+target_compile_options(chess PRIVATE -msse4.2 -mpopcnt)
 
 if(WIN32)
     set_target_properties(chess PROPERTIES SUFFIX ".pyd")
