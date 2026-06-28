@@ -1,0 +1,50 @@
+[
+{
+  "directory": "/home/angstrom/personal/dev/cpp/chess/release",
+  "command": "/usr/bin/clang++ -Dchess_EXPORTS -I/home/angstrom/personal/dev/cpp/chess/include -I/usr/include/python3.12 -I/home/angstrom/personal/dev/cpp/chess/src -Wall -Wextra -O3 -std=gnu++23 -fPIC -msse4.2 -mpopcnt -o CMakeFiles/chess.dir/src/bitboard.cpp.o -c /home/angstrom/personal/dev/cpp/chess/src/bitboard.cpp",
+  "file": "/home/angstrom/personal/dev/cpp/chess/src/bitboard.cpp",
+  "output": "CMakeFiles/chess.dir/src/bitboard.cpp.o"
+},
+{
+  "directory": "/home/angstrom/personal/dev/cpp/chess/release",
+  "command": "/usr/bin/clang++ -Dchess_EXPORTS -I/home/angstrom/personal/dev/cpp/chess/include -I/usr/include/python3.12 -I/home/angstrom/personal/dev/cpp/chess/src -Wall -Wextra -O3 -std=gnu++23 -fPIC -msse4.2 -mpopcnt -o CMakeFiles/chess.dir/src/board.cpp.o -c /home/angstrom/personal/dev/cpp/chess/src/board.cpp",
+  "file": "/home/angstrom/personal/dev/cpp/chess/src/board.cpp",
+  "output": "CMakeFiles/chess.dir/src/board.cpp.o"
+},
+{
+  "directory": "/home/angstrom/personal/dev/cpp/chess/release",
+  "command": "/usr/bin/clang++ -Dchess_EXPORTS -I/home/angstrom/personal/dev/cpp/chess/include -I/usr/include/python3.12 -I/home/angstrom/personal/dev/cpp/chess/src -Wall -Wextra -O3 -std=gnu++23 -fPIC -msse4.2 -mpopcnt -o CMakeFiles/chess.dir/src/move.cpp.o -c /home/angstrom/personal/dev/cpp/chess/src/move.cpp",
+  "file": "/home/angstrom/personal/dev/cpp/chess/src/move.cpp",
+  "output": "CMakeFiles/chess.dir/src/move.cpp.o"
+},
+{
+  "directory": "/home/angstrom/personal/dev/cpp/chess/release",
+  "command": "/usr/bin/clang++ -Dchess_EXPORTS -I/home/angstrom/personal/dev/cpp/chess/include -I/usr/include/python3.12 -I/home/angstrom/personal/dev/cpp/chess/src -Wall -Wextra -O3 -std=gnu++23 -fPIC -msse4.2 -mpopcnt -o CMakeFiles/chess.dir/src/core.cpp.o -c /home/angstrom/personal/dev/cpp/chess/src/core.cpp",
+  "file": "/home/angstrom/personal/dev/cpp/chess/src/core.cpp",
+  "output": "CMakeFiles/chess.dir/src/core.cpp.o"
+},
+{
+  "directory": "/home/angstrom/personal/dev/cpp/chess/release",
+  "command": "/usr/bin/clang++ -Dchess_EXPORTS -I/home/angstrom/personal/dev/cpp/chess/include -I/usr/include/python3.12 -I/home/angstrom/personal/dev/cpp/chess/src -Wall -Wextra -O3 -std=gnu++23 -fPIC -msse4.2 -mpopcnt -o CMakeFiles/chess.dir/src/searcher.cpp.o -c /home/angstrom/personal/dev/cpp/chess/src/searcher.cpp",
+  "file": "/home/angstrom/personal/dev/cpp/chess/src/searcher.cpp",
+  "output": "CMakeFiles/chess.dir/src/searcher.cpp.o"
+},
+{
+  "directory": "/home/angstrom/personal/dev/cpp/chess/release",
+  "command": "/usr/bin/clang++ -Dchess_EXPORTS -I/home/angstrom/personal/dev/cpp/chess/include -I/usr/include/python3.12 -I/home/angstrom/personal/dev/cpp/chess/src -Wall -Wextra -O3 -std=gnu++23 -fPIC -msse4.2 -mpopcnt -o CMakeFiles/chess.dir/src/attackTable.cpp.o -c /home/angstrom/personal/dev/cpp/chess/src/attackTable.cpp",
+  "file": "/home/angstrom/personal/dev/cpp/chess/src/attackTable.cpp",
+  "output": "CMakeFiles/chess.dir/src/attackTable.cpp.o"
+},
+{
+  "directory": "/home/angstrom/personal/dev/cpp/chess/release",
+  "command": "/usr/bin/clang++ -Dchess_EXPORTS -I/home/angstrom/personal/dev/cpp/chess/include -I/usr/include/python3.12 -I/home/angstrom/personal/dev/cpp/chess/src -Wall -Wextra -O3 -std=gnu++23 -fPIC -msse4.2 -mpopcnt -o CMakeFiles/chess.dir/src/boardState.cpp.o -c /home/angstrom/personal/dev/cpp/chess/src/boardState.cpp",
+  "file": "/home/angstrom/personal/dev/cpp/chess/src/boardState.cpp",
+  "output": "CMakeFiles/chess.dir/src/boardState.cpp.o"
+},
+{
+  "directory": "/home/angstrom/personal/dev/cpp/chess/release",
+  "command": "/usr/bin/clang++ -Dchess_EXPORTS -I/home/angstrom/personal/dev/cpp/chess/include -I/usr/include/python3.12 -I/home/angstrom/personal/dev/cpp/chess/src -Wall -Wextra -O3 -std=gnu++23 -fPIC -msse4.2 -mpopcnt -o CMakeFiles/chess.dir/src/pythonModule.cpp.o -c /home/angstrom/personal/dev/cpp/chess/src/pythonModule.cpp",
+  "file": "/home/angstrom/personal/dev/cpp/chess/src/pythonModule.cpp",
+  "output": "CMakeFiles/chess.dir/src/pythonModule.cpp.o"
+}
+]

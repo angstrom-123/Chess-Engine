@@ -3,6 +3,7 @@
 
 #include "libchess/board.h"
 #include "methodobject.h"
+#include "move.h"
 #include "pytypedefs.h"
 #include "unicodeobject.h"
 
@@ -78,12 +79,27 @@ namespace py {
         return PyUnicode_FromString(move.ToLAN().chars);
     }
 
+    static PyObject *BoardMakeMove(Board *self, PyObject *args)
+    {
+        if (!self->board)
+            return nullptr;
+        char *lan = nullptr;
+        if (!PyArg_ParseTuple(args, "|s", &lan))
+            return nullptr;
+        LongAlgebraicMove move = LongAlgebraicMove::FromChars(lan);
+        if (!LongAlgebraicMove::IsValid(move))
+            return nullptr;
+        self->board->MakeMove(move);
+        Py_RETURN_NONE;
+    }
+
     // Board Method Table
 
     static PyMethodDef boardMethods[] = {
         { "has_error", reinterpret_cast<PyCFunction>(py::BoardGetError), METH_NOARGS, "Check if the board has an error." },
         { "get_error", reinterpret_cast<PyCFunction>(py::BoardGetError), METH_NOARGS, "Gets the current error if there is one." },
         { "go", reinterpret_cast<PyCFunction>(py::BoardGo), METH_VARARGS, "Find the best move on the current board within the given time." },
+        { "make_move", reinterpret_cast<PyCFunction>(py::BoardMakeMove), METH_VARARGS, "Apply a move in Long Algebraic Notation to update game state." },
         { nullptr, nullptr, 0, nullptr }
     };
 

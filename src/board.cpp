@@ -1,4 +1,6 @@
 #include "libchess/board.h"
+#include "core.h"
+#include "move.h"
 #include <charconv>
 #include <cstring>
 #include <immintrin.h>
@@ -13,10 +15,13 @@ namespace libchess {
         {
             m_InternalState = EngineState::OK;
             m_State.pieces.StartPos();
-            m_State.rights = CastlingRights{};
+            m_State.rights = CastlingRight::KINGSIDE_BLACK | 
+                CastlingRight::KINGSIDE_WHITE |
+                CastlingRight::QUEENSIDE_BLACK |
+                CastlingRight::QUEENSIDE_WHITE,
             m_State.turn = Color::WHITE;
             m_State.enPassantIndex = UINT8_MAX;
-            m_HalfMoves = 0;
+            m_State.halfMoves = 0;
             m_FullMoves = 1;
             return;
         }
@@ -42,7 +47,6 @@ namespace libchess {
                         return;
                     }
 
-                    uint64_t bit = 1ul << boardIndex;
                     char c = fen[j];
                     Color::Value color = (c > 'Z') ? Color::BLACK : Color::WHITE;
                     switch (c) {
@@ -97,10 +101,7 @@ namespace libchess {
         // Read castling rights
         {
             const FenView& v = views[9];
-            m_State.rights = {
-                .kingside = { false, false },
-                .queenside = { false, false },
-            };
+            m_State.rights = 0;
 
             if (v.end - v.start == 1) {
                 if (fen[v.start] != '-') {
@@ -112,16 +113,16 @@ namespace libchess {
                     char c = fen[i];
                     switch (c) {
                         case 'K':
-                            m_State.rights.kingside[Color::WHITE] = true;
+                            m_State.rights |= CastlingRight::KINGSIDE_WHITE;
                             break;
                         case 'k':
-                            m_State.rights.kingside[Color::BLACK] = true;
+                            m_State.rights |= CastlingRight::KINGSIDE_BLACK;
                             break;
                         case 'Q':
-                            m_State.rights.queenside[Color::WHITE] = true;
+                            m_State.rights |= CastlingRight::QUEENSIDE_WHITE;
                             break;
                         case 'q':
-                            m_State.rights.queenside[Color::BLACK] = true;
+                            m_State.rights |= CastlingRight::QUEENSIDE_BLACK;
                             break;
                         default:
                             m_InternalState = EngineState::ERROR_BAD_FEN_CASTLING_RIGHTS;
@@ -153,7 +154,7 @@ namespace libchess {
         // Read half-move counter 
         {
             const FenView& v = views[11];
-            auto res = std::from_chars(&fen[v.start], &fen[v.end], m_HalfMoves);
+            auto res = std::from_chars(&fen[v.start], &fen[v.end], m_State.halfMoves);
             if (res.ec != std::errc()) {
                 m_InternalState = EngineState::ERROR_BAD_FEN_HALF_MOVE_COUNTER;
                 return;
@@ -173,9 +174,25 @@ namespace libchess {
 
     Move Board::Go(uint64_t moveMs)
     {
-        m_Searcher.FindBest(m_State, moveMs);
+        // TODO: Draw by repetition, 50-move rule
 
-        return Move::Invalid();
+        m_InternalState = EngineState::SEARCHING_FOR_MOVE;
+
+        Move bestMove = m_Searcher.FindBest(m_State, moveMs);
+
+        return bestMove;
+    }
+
+    void Board::MakeMove(LongAlgebraicMove lan)
+    {
+        Move move = Move::FromLAN(lan, m_State.pieces);
+
+        m_Searcher.MakeMove(move, m_State);
+
+        if (m_State.turn == Color::WHITE)
+            m_FullMoves++;
+
+        m_InternalState = EngineState::OK;
     }
 
     bool Board::HasError()
@@ -211,10 +228,10 @@ namespace libchess {
         ss << "Move " << m_FullMoves << std::endl
             << (m_State.turn == Color::BLACK ? "Black" : "White") << " to move" << std::endl
             << "Castling rights: " << std::endl
-            << "    White long: " << (m_State.rights.queenside[Color::WHITE] ? "true" : "false") 
-            << ", short: " << (m_State.rights.kingside[Color::WHITE] ? "true" : "false") << std::endl
-            << "    Black long: " << (m_State.rights.queenside[Color::BLACK] ? "true" : "false") 
-            << ", short: " << (m_State.rights.kingside[Color::BLACK] ? "true" : "false") << std::endl
+            << "    White long: " << ((m_State.rights & CastlingRight::QUEENSIDE_WHITE) ? "true" : "false")
+            << ", short: " << ((m_State.rights & CastlingRight::KINGSIDE_WHITE) ? "true" : "false") << std::endl
+            << "    Black long: " << ((m_State.rights & CastlingRight::QUEENSIDE_BLACK) ? "true" : "false")
+            << ", short: " << ((m_State.rights & CastlingRight::KINGSIDE_BLACK) ? "true" : "false") << std::endl
             << "Board: ";
 
         const char symbols[Color::MAX_ENUM][Piece::MAX_ENUM] = {
@@ -242,7 +259,7 @@ namespace libchess {
         m_State.rights = CastlingRights{};
         m_State.turn = Color::WHITE;
         m_State.enPassantIndex = UINT8_MAX;
-        m_HalfMoves = 0;
+        m_State.halfMoves = 0;
         m_FullMoves = 1;
     }
 

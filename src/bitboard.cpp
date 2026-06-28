@@ -1,4 +1,5 @@
 #include "bitboard.h"
+#include <popcntintrin.h>
 
 void BitboardSet::StartPos()
 {
@@ -18,11 +19,6 @@ void BitboardSet::StartPos()
 
     m_Combined[Color::WHITE] = 0b11111111'11111111'00000000'00000000'00000000'00000000'00000000'00000000;
     m_Combined[Color::BLACK] = 0b00000000'00000000'00000000'00000000'00000000'00000000'11111111'11111111;
-}
-
-Bitboard BitboardSet::Get(Color::Value color, Piece::Value piece) const
-{
-    return m_Bits[color][piece];
 }
 
 void BitboardSet::Set(Color::Value color, Piece::Value piece, uint8_t index)
@@ -80,6 +76,11 @@ bool BitboardSet::Has(uint8_t index) const
     return (m_Combined[Color::WHITE] | m_Combined[Color::BLACK]) & bit;
 }
 
+uint8_t BitboardSet::Count(Color::Value color, Piece::Value piece) const 
+{
+    return _mm_popcnt_u64(m_Bits[color][piece]);
+}
+
 std::pair<Color::Value, Piece::Value> BitboardSet::PieceInSquare(uint8_t index) const
 {
     if (Has(index)) {
@@ -94,12 +95,17 @@ std::pair<Color::Value, Piece::Value> BitboardSet::PieceInSquare(uint8_t index) 
     return std::make_pair(Color::Invalid(), Piece::Invalid());
 }
 
-uint64_t BitboardSet::OccupancyMask(Color::Value color) const
+Bitboard BitboardSet::OccupancyMask(Color::Value color, Piece::Value piece) const
+{
+    return m_Bits[color][piece];
+}
+
+Bitboard BitboardSet::OccupancyMask(Color::Value color) const
 {
     return m_Combined[color];
 }
 
-uint64_t BitboardSet::OccupancyMask() const
+Bitboard BitboardSet::OccupancyMask() const
 {
     return m_Combined[Color::WHITE] | m_Combined[Color::BLACK];
 }

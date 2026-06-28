@@ -13,6 +13,7 @@ namespace libchess {
     public:
         Board(const char *fen);
         Move Go(uint64_t moveMs);
+        void MakeMove(LongAlgebraicMove lan);
         bool HasError();
         const char *GetError();
         void Show(std::string& result);
@@ -25,7 +26,6 @@ namespace libchess {
         EngineState::Value m_InternalState{EngineState::OK};
         Searcher m_Searcher;
         BoardState m_State;
-        uint64_t m_HalfMoves{0};
         uint64_t m_FullMoves{1};
     };
 }
