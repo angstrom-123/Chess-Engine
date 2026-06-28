@@ -1,3 +1,0 @@
-/home/angstrom/personal/dev/cpp/chess/release/CMakeFiles/chess.dir
-/home/angstrom/personal/dev/cpp/chess/release/CMakeFiles/edit_cache.dir
-/home/angstrom/personal/dev/cpp/chess/release/CMakeFiles/rebuild_cache.dir
