@@ -1,18 +1,58 @@
 # Chess Engine
 
-WIP
-A chess engine written in C++ with a python api.
+Work-In-Progress - Partially implemented, API subject to change.
+A chess engine written in C++ with a Python 3 API.
 
-## Build The Shared Library
+## Build
 
+### Release Build
 ```
-mkdir build && cd build
-cmake ..
+mkdir release && cd release
+cmake .. -DCMAKE_BUILD_TYPE=Release
+make
+```
+
+### Debug Build
+```
+mkdir debug && cd debug
+cmake .. -DCMAKE_BUILD_TYPE=Debug
 make
 ```
 
 ## Use in Python 3
 
-- Add the `libchess.so` or `libchess.pyd` file to your Python 3 path.
-- Import the library with `import libchess`
-- Call functions using `libchess.some_function_name(arguments)`
+### Import
+```
+from release import libchess
+# from debug import libchess # If you built debug
+```
+
+### Create a Board
+```
+# New board in start position
+board = libchess.Board()
+
+# New board from FEN string
+board_from_fen = libchess.Board("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1")
+```
+
+### Check for Errors
+```
+if board.has_error():
+    error = board.get_error()
+    print(error)
+    exit(1)
+```
+
+### Search for Move
+```
+time_limit_ms = 1000 # Currently unimplemented, for reference only
+best_move = board.go(time_limit_ms)
+print(best_move) # Long Algebraic Notation e.g. e2e4
+board.make_move(best_move)
+```
+
+### Print Board State
+```
+print(repr(board))
+```
