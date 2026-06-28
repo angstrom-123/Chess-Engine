@@ -1,4 +1,6 @@
 #include "searcher.h"
+#include "move.h"
+#include "evaluator.h"
 
 #include <chrono>
 #include <cstdint>
@@ -7,13 +9,16 @@
 #include <iomanip>
 #include <iostream>
 
+const uint8_t DEPTH = 7;
+const uint8_t MAX_QUIESCENCE_PLY = 6;
+
+// TODO: Make unmake
 Move Searcher::FindBest(const BoardState& state, uint64_t ms)
 {
-    // Non-const version for making and unmaking moves
-    BoardState workingState(state);
-
     // TODO: Track time
     auto startPoint = std::chrono::high_resolution_clock::now();
+
+    BoardState workingState(state);
 
     m_NodesSearched = 0;
     m_NodesEvaluated = 0;
@@ -22,21 +27,38 @@ Move Searcher::FindBest(const BoardState& state, uint64_t ms)
     FindAttacks(std::forward<const BoardState>(state), attackMoves);
     std::cout << "Found " << attackMoves.Size() << " attacks" << std::endl;
 
-    const uint8_t depth = 7;
+    const uint8_t depth = DEPTH;
+    LineBuffer principalVariation(depth);
+    LineBuffer localLine(depth);
 
-    int64_t bestScore = -INT64_MAX;
     Move bestMove = Move::Invalid();
+    int64_t bestScore = -INT64_MAX;
+    int64_t alpha = -INT64_MAX;
+    int64_t beta = INT64_MAX;
+
     for (Move move : attackMoves) {
         m_NodesSearched++;
-        if (!IsLegal(move, workingState))
+        MoveData moveData = MakeMove(move, workingState);
+        if (!WasLegal(moveData, workingState)) {
+            UnmakeMove(moveData, workingState);
             continue;
+        }
         m_NodesEvaluated++;
-        BoardState candidateState(state);
-        MakeMove(move, candidateState);
-        int64_t score = -Search(candidateState, -INT64_MAX, INT64_MAX, depth - 1);
+
+        localLine.Resize(0);
+        int64_t score = -Search(workingState, -beta, -alpha, depth - 1, 1, localLine);
+        UnmakeMove(moveData, workingState);
+
         if (score > bestScore) {
             bestScore = score;
             bestMove = move;
+            if (score > alpha)
+                alpha = score;
+
+            principalVariation[0] = move;
+            for (uint8_t i = 0; i < localLine.Size(); i++)
+                principalVariation[i + 1] = localLine[i];
+            principalVariation.Resize(localLine.Size() + 1);
         }
     }
 
@@ -45,20 +67,37 @@ Move Searcher::FindBest(const BoardState& state, uint64_t ms)
     std::cout << "Found " << quietMoves.Size() << " quiets" << std::endl;
     for (Move move : quietMoves) {
         m_NodesSearched++;
-        if (!IsLegal(move, workingState))
+        MoveData moveData = MakeMove(move, workingState);
+        if (!WasLegal(moveData, workingState)) {
+            UnmakeMove(moveData, workingState);
             continue;
+        }
         m_NodesEvaluated++;
-        BoardState candidateState(state);
-        MakeMove(move, candidateState);
-        int64_t score = -Search(candidateState, -INT64_MAX, INT64_MAX, depth - 1);
+
+        localLine.Resize(0);
+        int64_t score = -Search(workingState, -beta, -alpha, depth - 1, 1, localLine);
+        UnmakeMove(moveData, workingState);
+
         if (score > bestScore) {
             bestScore = score;
             bestMove = move;
+            if (score > alpha)
+                alpha = score;
+
+            principalVariation[0] = move;
+            for (uint8_t i = 0; i < localLine.Size(); i++)
+                principalVariation[i + 1] = localLine[i];
+            principalVariation.Resize(localLine.Size() + 1);
         }
     }
 
     if (!Move::IsValid(bestMove))
         std::cout << "Couldn't find a valid move" << std::endl;
+
+    std::cout << std::endl << "Principal Variation: ";
+    for (const auto move : principalVariation)
+        std::cout << move.ToLAN().chars << ", ";
+    std::cout << std::endl;
     
     auto endPoint = std::chrono::high_resolution_clock::now();
 
@@ -69,33 +108,49 @@ Move Searcher::FindBest(const BoardState& state, uint64_t ms)
     float mnpsSearch = static_cast<float>(m_NodesSearched) / static_cast<float>(msTaken) / 1000.0;
     float mnpsEvaluate = static_cast<float>(m_NodesEvaluated) / static_cast<float>(msTaken) / 1000.0;
     std::cout << "Searched " << m_NodesSearched << " nodes in " << msTaken << "ms (" << std::setprecision(3) << mnpsSearch << " million nps)" <<  std::endl;
+    std::cout << "  of those Quiesced " << m_NodesQuiesced << " nodes" << std::endl;
     std::cout << "Evaluated " << m_NodesEvaluated << " nodes in " << msTaken << "ms (" << std::setprecision(3) << mnpsEvaluate << " million nps)" <<  std::endl;
 
     return bestMove;
 }
 
-int64_t Searcher::Search(BoardState& state, int64_t alpha, int64_t beta, uint8_t depth)
+int64_t Searcher::Search(BoardState& state, int64_t alpha, int64_t beta, uint8_t depth, uint8_t ply, LineBuffer& pv)
 {
+    pv.Resize(0);
+
     if (depth == 0)
-        return Evaluate(state);
+        return Quiesce(state, alpha, beta, 0);
 
     int64_t max = -INT64_MAX;
+    LineBuffer localLine(depth);
 
     AttackMoveBuffer attackMoves;
     FindAttacks(std::forward<const BoardState>(state), attackMoves);
     for (Move move : attackMoves) {
         m_NodesSearched++;
-        if (!IsLegal(move, state))
+        MoveData moveData = MakeMove(move, state);
+        if (!WasLegal(moveData, state)) {
+            UnmakeMove(moveData, state);
             continue;
+        }
         m_NodesEvaluated++;
-        BoardState candidateState(state);
-        MakeMove(move, candidateState);
-        int64_t score = -Search(candidateState, -beta, -alpha, depth - 1);
+
+        localLine.Resize(0);
+        int64_t score = -Search(state, -beta, -alpha, depth - 1, ply + 1, localLine);
+        UnmakeMove(moveData, state);
+
         if (score > max) {
             max = score;
-            if (score > alpha)
+            if (score > alpha) {
                 alpha = score;
+
+                pv[0] = move;
+                for (uint8_t i = 0; i < localLine.Size(); i++)
+                    pv[i + 1] = localLine[i];
+                pv.Resize(localLine.Size() + 1);
+            }
         }
+
         if (score >= beta)
             return max;
     }
@@ -104,101 +159,202 @@ int64_t Searcher::Search(BoardState& state, int64_t alpha, int64_t beta, uint8_t
     FindQuiets(std::forward<const BoardState>(state), quietMoves);
     for (Move move : quietMoves) {
         m_NodesSearched++;
-        if (!IsLegal(move, state))
+        MoveData moveData = MakeMove(move, state);
+        if (!WasLegal(moveData, state)) {
+            UnmakeMove(moveData, state);
             continue;
+        }
         m_NodesEvaluated++;
-        BoardState candidateState(state);
-        MakeMove(move, candidateState);
-        int64_t score = -Search(candidateState, -beta, -alpha, depth - 1);
+
+        localLine.Resize(0);
+        int64_t score = -Search(state, -beta, -alpha, depth - 1, ply + 1, localLine);
+        UnmakeMove(moveData, state);
+
         if (score > max) {
             max = score;
-            if (score > alpha)
+            if (score > alpha) {
                 alpha = score;
+
+                pv[0] = move;
+                for (uint8_t i = 0; i < localLine.Size(); i++)
+                    pv[i + 1] = localLine[i];
+                pv.Resize(localLine.Size() + 1);
+            }
         }
+
         if (score >= beta)
             return max;
+    }
+
+    if (max == -INT64_MAX) {
+        // Checkmate
+        Bitboard king = state.pieces.OccupancyMask(state.turn, Piece::KING);
+        if (SquareUnderAttack(king, Color::Opposite(state.turn), state)) 
+            return -MATE_EVAL + ply;
+
+        // Stalemate
+        return 0;
     }
     return max;
 }
 
-void Searcher::MakeMove(Move move, BoardState& state)
+int64_t Searcher::Quiesce(BoardState& state, int64_t alpha, int64_t beta, uint8_t ply)
 {
+    int64_t staticEval = Evaluator::Evaluate(state);
+    if (ply == MAX_QUIESCENCE_PLY)
+        return staticEval;
+
+    // Stand Pat
+    int64_t max = staticEval;
+    if (max >= beta)
+        return max;
+    if (max > alpha)
+        alpha = max;
+
+    AttackMoveBuffer attackMoves;
+    FindAttacks(state, attackMoves);
+    for (Move move : attackMoves) {
+        m_NodesSearched++;
+        m_NodesQuiesced++;
+        MoveData moveData = MakeMove(move, state);
+        if (!WasLegal(moveData, state)) {
+            UnmakeMove(moveData, state);
+            continue;
+        }
+        m_NodesEvaluated++;
+
+        int64_t score = -Quiesce(state, -beta, -alpha, ply + 1);
+        UnmakeMove(moveData, state);
+
+        if (score >= beta)
+            return score;
+
+        if (score > max)
+            max = score;
+
+        if (score > alpha)
+            alpha = score;
+    }
+
+    return max;
+}
+
+MoveData Searcher::MakeMove(Move move, BoardState& state)
+{
+    Piece::Value capture = state.pieces.PieceInSquare(move.to).second;
+
     Color::Value friendly = state.turn;
     Color::Value enemy = Color::Opposite(state.turn);
 
-    // Piece positions
-    {
-        state.pieces.Unset(friendly, move.GetPiece(), move.from);
-        state.pieces.UnsetAll(enemy, move.to);
-        state.pieces.Set(friendly, Piece::IsValid(move.GetPromote()) ? move.GetPromote() : move.GetPiece(), move.to);
-    }
+    // For unmaking the move later
+    MoveData moveData = {
+        .move = move,
+        .capture = capture,
+        .rights = state.rights,
+        .turn = state.turn,
+        .enPassantIndex = state.enPassantIndex,
+        .halfMoves = state.halfMoves
+    };
 
-    // Castling rights
-    {
-        if (move.GetPiece() == Piece::KING) {
-            state.rights &= ~CastlingRight::Kingside(friendly);
-            state.rights &= ~CastlingRight::Queenside(friendly);
-        } else if (move.GetPiece() == Piece::ROOK) {
-            uint8_t kingsideIndex = (friendly == Color::WHITE) ? 63 : 7;
-            uint8_t queensideIndex = (friendly == Color::WHITE) ? 56 : 0;
+    // Move piece
+    state.pieces.Unset(friendly, move.piece, move.from);
+    if (Piece::IsValid(move.promote))
+        state.pieces.Set(friendly, move.promote, move.to);
+    else
+        state.pieces.Set(friendly, move.piece, move.to);
 
-            if (move.from == kingsideIndex)
-                state.rights &= ~CastlingRight::Kingside(friendly);
+    // Remove capture
+    if (Piece::IsValid(capture))
+        state.pieces.Unset(enemy, capture, move.to);
 
-            if (move.from == queensideIndex)
-                state.rights &= ~CastlingRight::Queenside(friendly);
+    // Move rook if castling
+    if (move.piece == Piece::KING && Difference(move.from, move.to) == 2) {
+        if (move.from > move.to) {
+            state.pieces.Unset(friendly, Piece::ROOK, move.from - 4);
+            state.pieces.Set(friendly, Piece::ROOK, move.from - 1);
+        } else {
+            state.pieces.Unset(friendly, Piece::ROOK, move.from + 3);
+            state.pieces.Set(friendly, Piece::ROOK, move.from + 1);
         }
     }
 
-    // En Passant
-    {
-        state.enPassantIndex = UINT8_MAX;
-        if (move.GetPiece() == Piece::PAWN && Difference(move.from, move.to) == 16)
-            state.enPassantIndex = (friendly == Color::WHITE) ? move.to + 8 : move.to - 8;
+    // Remove pawn if en passant
+    if (move.piece == Piece::PAWN && move.to == state.enPassantIndex)
+        state.pieces.Unset(enemy, Piece::PAWN, (friendly == Color::WHITE) ? move.to + 8 : move.to - 8);
+
+    // Avoid updating castling rights after both sides lose the right
+    if (state.rights != 0) {
+        // Remove castling rights if king moved
+        if (move.piece == Piece::KING)
+            state.rights = 0;
+
+        // Remove castling rights if rook moved from start square
+        if (move.piece == Piece::ROOK) {
+            if (move.from == (friendly == Color::WHITE ? 63 : 7))
+                state.rights &= ~CastlingRight::Kingside(friendly);
+            else if (move.from == (friendly == Color::WHITE ? 56 : 0))
+                state.rights &= ~CastlingRight::Queenside(friendly);
+        }
+
+        // Remove castling rights if rook captured on start square
+        if (capture == Piece::ROOK) {
+            if (move.to == (enemy == Color::WHITE ? 63 : 7))
+                state.rights &= ~CastlingRight::Kingside(enemy);
+            else if (move.from == (enemy == Color::WHITE ? 56 : 0))
+                state.rights &= ~CastlingRight::Queenside(enemy);
+        }
     }
 
-    // Turn
-    state.turn = enemy;
+    // Update en passant square if double pawn push
+    if (move.piece == Piece::PAWN && Difference(move.from, move.to) == 16)
+        state.enPassantIndex = (friendly == Color::WHITE) ? move.to + 8 : move.to - 8;
+    else 
+        state.enPassantIndex = UINT8_MAX;
 
-    // Half move counter
+    state.turn = enemy;
     state.halfMoves++;
+
+    return moveData;
 }
 
-int64_t Searcher::Evaluate(const BoardState& state)
+void Searcher::UnmakeMove(MoveData moveData, BoardState& state)
 {
-    int64_t eval = 0;
+    const Move& move = moveData.move;
 
-    Color::Value friendly = state.turn;
-    Color::Value enemy = Color::Opposite(state.turn);
+    Color::Value friendly = moveData.turn;
+    Color::Value enemy = Color::Opposite(moveData.turn);
 
-    // Material balance
-    {
-        int64_t materialEval = 0;
+    // Replace moving piece
+    state.pieces.Set(friendly, move.piece, move.from);
+    if (Piece::IsValid(move.promote))
+        state.pieces.Unset(friendly, move.promote, move.to);
+    else
+        state.pieces.Unset(friendly, move.piece, move.to);
 
-        int64_t values[Piece::MAX_ENUM];
-        values[Piece::PAWN] = 100;
-        values[Piece::KNIGHT] = 300;
-        values[Piece::BISHOP] = 310;
-        values[Piece::ROOK] = 500;
-        values[Piece::QUEEN] = 900;
-        values[Piece::KING] = 0; // Not counted towards material balance
+    // Replace capture
+    if (Piece::IsValid(moveData.capture))
+        state.pieces.Set(enemy, moveData.capture, move.to);
 
-        int64_t nPawns = state.pieces.Count(friendly, Piece::PAWN) - state.pieces.Count(enemy, Piece::PAWN);
-        int64_t nKnights = state.pieces.Count(friendly, Piece::KNIGHT) - state.pieces.Count(enemy, Piece::KNIGHT);
-        int64_t nBishops = state.pieces.Count(friendly, Piece::BISHOP) - state.pieces.Count(enemy, Piece::BISHOP);
-        int64_t nRooks = state.pieces.Count(friendly, Piece::ROOK) - state.pieces.Count(enemy, Piece::ROOK);
-        int64_t nQueens = state.pieces.Count(friendly, Piece::QUEEN) - state.pieces.Count(enemy, Piece::QUEEN);
-
-        materialEval = nPawns * values[Piece::PAWN]
-                + nKnights * values[Piece::KNIGHT]
-                + nBishops * values[Piece::BISHOP]
-                + nRooks * values[Piece::ROOK]
-                + nQueens * values[Piece::QUEEN];
-
-        eval += materialEval;
+    // Replace rook if castling
+    if (move.piece == Piece::KING && Difference(move.from, move.to) == 2) {
+        if (move.from > move.to) {
+            state.pieces.Set(friendly, Piece::ROOK, move.from - 4);
+            state.pieces.Unset(friendly, Piece::ROOK, move.from - 1);
+        } else {
+            state.pieces.Set(friendly, Piece::ROOK, move.from + 3);
+            state.pieces.Unset(friendly, Piece::ROOK, move.from + 1);
+        }
     }
 
-    return eval;
+    // Replace pawn if en passant
+    if (move.piece == Piece::PAWN && move.to == moveData.enPassantIndex)
+        state.pieces.Set(enemy, Piece::PAWN, (friendly == Color::WHITE) ? move.to + 8 : move.to - 8);
+
+    // Update variables
+    state.rights = moveData.rights;
+    state.turn = moveData.turn;
+    state.enPassantIndex = moveData.enPassantIndex;
+    state.halfMoves = moveData.halfMoves;
 }
 
 void Searcher::FindAttacks(const BoardState& state, AttackMoveBuffer& attackBuffer)
@@ -270,32 +426,63 @@ void Searcher::FindQuiets(const BoardState& state, QuietMoveBuffer& quietBuffer)
 {
     quietBuffer.Clear();
 
-    for (uint8_t i = 0; i < 64; i++) {
-        const auto [color, piece] = state.pieces.PieceInSquare(i);
-        if (color != state.turn) 
-            continue;
+    // Pawns
+    {
+        Bitboard occupancy = state.pieces.OccupancyMask(state.turn, Piece::PAWN);
+        while (occupancy) {
+            uint8_t index = _tzcnt_u64(occupancy);
+            FindPawnQuiets(index, std::forward<const BoardState>(state), quietBuffer);
+            occupancy &= (occupancy - 1);
+        }
+    }
 
-        switch (piece) {
-            case Piece::PAWN:
-                FindPawnQuiets(i, std::forward<const BoardState>(state), quietBuffer);
-                break;
-            case Piece::KNIGHT:
-                FindKnightQuiets(i, std::forward<const BoardState>(state), quietBuffer);
-                break;
-            case Piece::BISHOP:
-                FindBishopQuiets(i, std::forward<const BoardState>(state), quietBuffer);
-                break;
-            case Piece::ROOK:
-                FindRookQuiets(i, std::forward<const BoardState>(state), quietBuffer);
-                break;
-            case Piece::QUEEN:
-                FindQueenQuiets(i, std::forward<const BoardState>(state), quietBuffer);
-                break;
-            case Piece::KING:
-                FindKingQuiets(i, std::forward<const BoardState>(state), quietBuffer);
-                break;
-            default:
-                break;
+    // Knights
+    {
+        Bitboard occupancy = state.pieces.OccupancyMask(state.turn, Piece::KNIGHT);
+        while (occupancy) {
+            uint8_t index = _tzcnt_u64(occupancy);
+            FindKnightQuiets(index, std::forward<const BoardState>(state), quietBuffer);
+            occupancy &= (occupancy - 1);
+        }
+    }
+
+    // Bishops
+    {
+        Bitboard occupancy = state.pieces.OccupancyMask(state.turn, Piece::BISHOP);
+        while (occupancy) {
+            uint8_t index = _tzcnt_u64(occupancy);
+            FindBishopQuiets(index, std::forward<const BoardState>(state), quietBuffer);
+            occupancy &= (occupancy - 1);
+        }
+    }
+
+    // Rooks
+    {
+        Bitboard occupancy = state.pieces.OccupancyMask(state.turn, Piece::ROOK);
+        while (occupancy) {
+            uint8_t index = _tzcnt_u64(occupancy);
+            FindRookQuiets(index, std::forward<const BoardState>(state), quietBuffer);
+            occupancy &= (occupancy - 1);
+        }
+    }
+
+    // Queens
+    {
+        Bitboard occupancy = state.pieces.OccupancyMask(state.turn, Piece::QUEEN);
+        while (occupancy) {
+            uint8_t index = _tzcnt_u64(occupancy);
+            FindQueenQuiets(index, std::forward<const BoardState>(state), quietBuffer);
+            occupancy &= (occupancy - 1);
+        }
+    }
+
+    // Kings
+    {
+        Bitboard occupancy = state.pieces.OccupancyMask(state.turn, Piece::KING);
+        while (occupancy) {
+            uint8_t index = _tzcnt_u64(occupancy);
+            FindKingQuiets(index, std::forward<const BoardState>(state), quietBuffer);
+            occupancy &= (occupancy - 1);
         }
     }
 }
@@ -350,21 +537,26 @@ bool Searcher::SquareUnderAttack(uint64_t bit, Color::Value color, const BoardSt
     return false;
 }
 
-bool Searcher::IsLegal(Move move, BoardState& state)
+bool Searcher::WasLegal(MoveData moveData, const BoardState& state)
 {
-    // Simulate move
-    BoardState candidateState = state;
-    candidateState.turn = Color::Opposite(state.turn);
-    candidateState.pieces.UnsetAll(Color::Opposite(state.turn), move.to);
-    candidateState.pieces.Unset(state.turn, move.GetPiece(), move.from);
-    candidateState.pieces.Set(state.turn, Piece::IsValid(move.GetPromote()) ? move.GetPromote() : move.GetPiece(), move.to);
+    Bitboard king = state.pieces.OccupancyMask(moveData.turn, Piece::KING);
 
-    // Check if friendly king is under attack
-    uint64_t kingBit = candidateState.pieces.OccupancyMask(state.turn, Piece::KING);
-    if (kingBit == 0)
+    // Should be impossible, but good to double check
+    if (_mm_popcnt_u64(king) != 1)
         return false;
-    bool res = !SquareUnderAttack(kingBit, candidateState.turn, std::forward<const BoardState>(state));
-    return res;
+
+    bool targetAttacked = SquareUnderAttack(king, Color::Opposite(moveData.turn), std::forward<const BoardState>(state));
+
+    // Check intermediate and start squares if castling
+    if (moveData.move.piece == Piece::KING && Difference(moveData.move.from, moveData.move.to) == 2) {
+        bool startAttacked = SquareUnderAttack(1ul << moveData.move.from, Color::Opposite(moveData.turn), std::forward<const BoardState>(state));
+        uint8_t midIndex = (moveData.move.from > moveData.move.to) ? moveData.move.from - 1 : moveData.move.from + 1;
+        bool midAttacked = SquareUnderAttack(1ul << midIndex, Color::Opposite(moveData.turn), std::forward<const BoardState>(state));
+
+        return !(targetAttacked || startAttacked || midAttacked);
+    }
+
+    return !targetAttacked;
 }
 
 void Searcher::FindPawnAttacks(uint8_t index, const BoardState& state, AttackMoveBuffer& attackBuffer)
@@ -472,19 +664,11 @@ void Searcher::FindKingQuiets(uint8_t index, const BoardState& state, QuietMoveB
 
     // Castling
     {
-        // NOTE: Only checking that king is safe at start and intermediate squares, since the 
-        //       end square will be checked alongside all other moves before inserting into 
-        //       the move buffer.
-        if (!SquareUnderAttack(1ul << index, Color::Opposite(state.turn), std::forward<const BoardState>(state))) {
-            if ((state.rights & CastlingRight::Kingside(state.turn)) && !state.pieces.Has(index + 1) &&
-                    !SquareUnderAttack(1ul << (index + 1), Color::Opposite(state.turn), std::forward<const BoardState>(state)))
-                quietBuffer.EmplaceBack(index, index + 2, Piece::KING, Piece::Invalid());
+        if ((state.rights & CastlingRight::Kingside(state.turn)) && !state.pieces.Has(index + 1) && !state.pieces.Has(index + 2))
+            quietBuffer.EmplaceBack(index, index + 2, Piece::KING, Piece::Invalid());
 
-            if ((state.rights & CastlingRight::Queenside(state.turn)) && !state.pieces.Has(index - 1) && 
-                    !SquareUnderAttack(1ul << (index - 1), Color::Opposite(state.turn), std::forward<const BoardState>(state)))
-                quietBuffer.EmplaceBack(index, index - 2, Piece::KING, Piece::Invalid());
-        }
-        // TODO: If this improved performance, defer this check too
+        if ((state.rights & CastlingRight::Queenside(state.turn)) && !state.pieces.Has(index - 1) && !state.pieces.Has(index - 2))
+            quietBuffer.EmplaceBack(index, index - 2, Piece::KING, Piece::Invalid());
     }
 }
 

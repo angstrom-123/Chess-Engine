@@ -8,7 +8,6 @@ using Bitboard = uint64_t;
 class BitboardSet {
 public:
     void StartPos();
-
     void Set(Color::Value color, Piece::Value piece, uint8_t index);
     void Unset(Color::Value color, Piece::Value piece, uint8_t index);
     void UnsetAll(Color::Value color, uint8_t index);

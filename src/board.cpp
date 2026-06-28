@@ -245,9 +245,9 @@ namespace libchess {
             
             const auto [color, piece] = m_State.pieces.PieceInSquare(i);
             if (Color::IsValid(color) && Piece::IsValid(piece))
-                ss << symbols[color][piece];
+                ss << symbols[color][piece] << ' ';
             else
-                ss << ' ';
+                ss << "  ";
         }
         result = ss.str();
     }

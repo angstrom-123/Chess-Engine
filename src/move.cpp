@@ -29,7 +29,7 @@ LongAlgebraicMove LongAlgebraicMove::FromChars(char *chars)
     return move;
 }
 
-LongAlgebraicMove Move::ToLAN()
+LongAlgebraicMove Move::ToLAN() const
 {
     auto ToAlgebraic = [](uint8_t index, char *result) {
         uint8_t x = index % 8;
@@ -38,12 +38,12 @@ LongAlgebraicMove Move::ToLAN()
         result[1] = '8' - y;
     };
 
-    LongAlgebraicMove lan = {'\0'};
+    LongAlgebraicMove lan =  { .chars = { '\0', '\0', '\0', '\0', '\0' } };
 
     ToAlgebraic(from, lan.from);
     ToAlgebraic(to, lan.to);
 
-    if (Piece::IsValid(GetPromote())) {
+    if (Piece::IsValid(promote)) {
         switch (promote) {
             case Piece::KNIGHT:
                 lan.promote = 'n';

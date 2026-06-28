@@ -18,6 +18,7 @@ set(SOURCES
     src/move.cpp
     src/core.cpp 
     src/searcher.cpp
+    src/evaluator.cpp
     src/attackTable.cpp
     src/boardState.cpp
     src/pythonModule.cpp
