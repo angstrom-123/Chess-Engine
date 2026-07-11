@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "chess"
+version = "0.1.0"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi[standard]>=0.138.2",
+]
+
+[tool.setuptools]
+package-dir = {"" = "build"}
+packages = ["libchess"]
+
+[tool.setuptools.package-data]
+libchess = ["*.so", "*.pyd"]
+
+[tool.fastapi]
+entrypoint = "server.main:app"

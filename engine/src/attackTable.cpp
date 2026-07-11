@@ -15,7 +15,7 @@ const std::array<int8_t[2], 4> BISHOP_ATTACKS = {{ { 1, 1 }, { -1, 1 }, { 1, -1 
 const std::array<int8_t[2], 4> ROOK_ATTACKS = {{ { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 } }};
 const std::array<int8_t[2], 8> KING_ATTACKS = {{ { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 }, { 1, 1 }, { -1, 1 }, { 1, -1 }, { -1, -1 } }};
 
-const fs::path MAGIC_FILE_PATH = "magics.bin";
+const fs::path MAGIC_FILE_PATH = fs::path("engine") / "magics.bin";
 
 AttackTable::AttackTable()
 {
@@ -25,7 +25,7 @@ AttackTable::AttackTable()
     GenerateSliderTables();
 }
 
-Bitboard AttackTable::GetAttacks(uint8_t index, Piece::Value piece, Color::Value color, Bitboard occupancy)
+Bitboard AttackTable::GetAttacks(uint8_t index, Piece::Value piece, Color::Value color, Bitboard occupancy) const
 {
     switch (piece) {
         case Piece::PAWN:

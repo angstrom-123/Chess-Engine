@@ -13,26 +13,27 @@ set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 find_package(Python3 COMPONENTS Development REQUIRED)
 
 set(SOURCES
-    src/bitboard.cpp 
-    src/board.cpp 
-    src/move.cpp
-    src/core.cpp 
-    src/searcher.cpp
-    src/evaluator.cpp
-    src/attackTable.cpp
-    src/boardState.cpp
-    src/pythonModule.cpp
+    engine/src/bitboard.cpp 
+    engine/src/board.cpp 
+    engine/src/move.cpp
+    engine/src/core.cpp 
+    engine/src/searcher.cpp
+    engine/src/evaluator.cpp
+    engine/src/attackTable.cpp
+    engine/src/boardState.cpp
+    engine/src/movegen.cpp
+    engine/src/pythonModule.cpp
 )
 
 add_library(chess SHARED ${SOURCES})
 
 target_include_directories(chess 
     PUBLIC
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/engine/include>
         $<INSTALL_INTERFACE:include>
     PRIVATE
         ${Python3_INCLUDE_DIRS}
-        ${CMAKE_CURRENT_SOURCE_DIR}/src
+        ${CMAKE_CURRENT_SOURCE_DIR}/engine/src
 )
 
 target_link_libraries(chess PRIVATE ${Python3_LIBRARIES})
@@ -43,6 +44,18 @@ if(WIN32)
     set_target_properties(chess PROPERTIES SUFFIX ".pyd")
 else()
     set_target_properties(chess PROPERTIES SUFFIX ".so")
+endif()
+
+set(PACKAGE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/build/libchess")
+file(MAKE_DIRECTORY ${PACKAGE_DIR})
+
+set_target_properties(chess PROPERTIES 
+    LIBRARY_OUTPUT_DIRECTORY ${PACKAGE_DIR}
+    RUNTIME_OUTPUT_DIRECTORY ${PACKAGE_DIR}
+)
+
+if(NOT EXISTS "${PACKAGE_DIR}/__init__.py")
+    file(WRITE "${PACKAGE_DIR}/__init__.py" "from .libchess import *")
 endif()
 
 message(STATUS "Python module will be built as: $<TARGET_FILE_NAME:chess>")

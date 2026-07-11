@@ -1,3 +1,5 @@
-release/
-debug/
+build/
 .cache/
+.venv/
+compile_commands.json
+node_modules/

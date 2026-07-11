@@ -3,56 +3,94 @@
 Work-In-Progress - Partially implemented, API subject to change.
 A chess engine written in C++ with a Python 3 API.
 
-## Build
+## Prerequisites
+- Modern C++ compiler (>=c++23)
+- Python 3.1x
+- Astral uv
+- npm
+- CMake
+- make / windows alternative (c++ build system)
 
-### Release Build
+## Build and Run Client
+
+### Build library
 ```
-mkdir release && cd release
-cmake .. -DCMAKE_BUILD_TYPE=Release
+mkdir build && cs build 
+cmake .. -DCMAKE_BUILD_TYPE=Release 
 make
 ```
 
-### Debug Build
+### Set up Server
 ```
-mkdir debug && cd debug
+uv sync
+```
+Linux: `source .venv/bin/activate`
+Windows: `.\venv\Scripts\Activate.ps1`
+
+### Set up client
+```
+npm install 
+```
+
+### Start the server (http://localhost:8000 by default)
+```
+npm run start
+```
+
+## Development
+
+### Debug Library Build
+```
+mkdir build && cd build 
 cmake .. -DCMAKE_BUILD_TYPE=Debug
 make
 ```
 
-## Use in Python 3
-
-### Import
+### Rebuilding Library
+If you ever rebuild the c++ library, you need to refresh uv dependencies.
 ```
-from release import libchess
-# from debug import libchess # If you built debug
+uv pip install -e . --force-reinstall
 ```
 
-### Create a Board
+### Development Server
+Note that typescript files do not currently auto-refresh, so you need to rerun the dev server if you change those. Changes to the server-side should be fine.
 ```
-# New board in start position
+npm run dev
+```
+
+### Library Python Code Example
+```
+import libchess
+
+# ========== Create a board ==========
+
+# Start position
 board = libchess.Board()
 
-# New board from FEN string
-board_from_fen = libchess.Board("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1")
-```
+# Alternatively Arbitrary position FEN
+# board = libchess.Board("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1")
 
-### Check for Errors
-```
+# ========== Check for errors ==========
+
 if board.has_error():
     error = board.get_error()
     print(error)
     exit(1)
-```
 
-### Search for Move
-```
-time_limit_ms = 1000 # Currently unimplemented, for reference only
+# ========== Search for best move ==========
+
+# Time limit currently unimplemented, for reference only
+time_limit_ms = 1000
+
+# Long algebraic notation (e.g. e2e4)
 best_move = board.go(time_limit_ms)
-print(best_move) # Long Algebraic Notation e.g. e2e4
-board.make_move(best_move)
-```
+print(f"Best Move: {best_move}")
 
-### Print Board State
-```
-print(repr(board))
+# ========== Update Board State ==========
+
+print(f"\nBefore:\n\n{repr(board)}")
+
+board.make_move(best_move)
+
+print(f"\nAfter:\n\n{repr(board)}")
 ```

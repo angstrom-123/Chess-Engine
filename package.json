@@ -1,0 +1,11 @@
+{
+  "scripts": {
+    "format": "prettier --write ./client/src",
+    "dev": "tsc && fastapi dev",
+    "start": "tsc && fastapi run"
+  },
+
+  "devDependencies": {
+    "typescript": "^6.0.3"
+  }
+}

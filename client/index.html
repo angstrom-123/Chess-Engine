@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Jupiter Client</title>
+    <link rel="stylesheet" href="assets/index.css">
+</head>
+
+<body>
+    <div class="container">
+        <div class="side-bar">
+            <button>Jupiter Client</button>
+            <button>Menu</button>
+            <button onclick="window.open('https://github.com/angstrom-123/Chess-Engine', '_blank')">GitHub</button>
+        </div>
+        <div class="content">
+            <div class="cards-container">
+                <div class="card">
+                    <div class="card-name">
+                        <p>Opponent</p>
+                    </div>
+                    <div class="card-timer">
+                        <p>60:00</p>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-name">
+                        <p>You</p>
+                    </div>
+                    <div class="card-timer">
+                        <p>60:00</p>
+                    </div>
+                </div>
+            </div>
+            <div class="board-container">
+                <canvas class="board-canvas"></canvas>
+                <canvas class="sprite-canvas"></canvas>
+            </div>
+        </div>
+    </div>
+</body>
+<script type="module" src="assets/dist/moves.mjs"></script>
+<script type="module" src="assets/dist/board.mjs"></script>
+<script type="module" src="assets/dist/index.mjs"></script>
+</html>

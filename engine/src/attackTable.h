@@ -40,7 +40,7 @@ public:
     AttackTable();
 
     // NOTE: Occupancy bitboard only considered for sliding pieces
-    Bitboard GetAttacks(uint8_t index, Piece::Value piece, Color::Value color, Bitboard occupancy);
+    Bitboard GetAttacks(uint8_t index, Piece::Value piece, Color::Value color, Bitboard occupancy) const;
 
 private:
     void SerializeMagics(const fs::path& path);
