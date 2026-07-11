@@ -14,33 +14,44 @@ A chess engine written in C++ with a Python 3 API.
 ## Build and Run Client
 
 ### Build library
-```
+```shell
 mkdir build && cs build 
 cmake .. -DCMAKE_BUILD_TYPE=Release 
 make
+cd ..
 ```
 
 ### Set up Server
-```
+```shell
 uv sync
 ```
-Linux: `source .venv/bin/activate`
-Windows: `.\venv\Scripts\Activate.ps1`
+
+On Linux Run:
+```shell
+source .venv/bin/activate
+```
+On Windows Run: 
+```shell
+.\venv\Scripts\Activate.ps1
+```
 
 ### Set up client
-```
+```shell
 npm install 
 ```
 
-### Start the server (http://localhost:8000 by default)
-```
+### Start the server
+```shell
 npm run start
 ```
+
+### Done 
+Your server should be running at http://localhost:8000 (by default)
 
 ## Development
 
 ### Debug Library Build
-```
+```shell
 mkdir build && cd build 
 cmake .. -DCMAKE_BUILD_TYPE=Debug
 make
@@ -48,18 +59,18 @@ make
 
 ### Rebuilding Library
 If you ever rebuild the c++ library, you need to refresh uv dependencies.
-```
+```shell
 uv pip install -e . --force-reinstall
 ```
 
 ### Development Server
 Note that typescript files do not currently auto-refresh, so you need to rerun the dev server if you change those. Changes to the server-side should be fine.
-```
+```shell
 npm run dev
 ```
 
 ### Library Python Code Example
-```
+```python
 import libchess
 
 # ========== Create a board ==========
