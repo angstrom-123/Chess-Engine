@@ -3,6 +3,7 @@
     --mid-gray: #353535;
     --dark-gray: #2a2a2a;
     --white: #fbfbf3;
+    --accent: #17b696;
 }
 
 html, body {
@@ -55,7 +56,7 @@ div p {
     box-sizing: border-box;
     grid-template-columns: 1fr auto;
     column-gap: 30px;
-    padding: 30px 15% 30px 0px;
+    padding: 30px 20% 30px 0px;
 }
 
 .side-bar {
@@ -72,12 +73,21 @@ div p {
     height: 50px;
     border-radius: 5px;
     border: none;
-    font-size: 130%;
+    font-size: 14pt;
     color: var(--white);
 }
 
 .side-bar button:first-child {
+    font-size: 22pt;
+    font-weight: bold;
     height: 100px;
+}
+
+.cards-parent {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    min-width: 400px;
 }
 
 .cards-container {
@@ -87,7 +97,6 @@ div p {
     grid-template-rows: auto auto;
     row-gap: 20%;
     border-radius: 5px;
-    min-width: 400px;
 }
 
 .card {
@@ -155,4 +164,205 @@ div p {
     width: 100%;
     border-radius: 5px;
     z-index: 2;
+}
+
+.loading-menu {
+    position: absolute;
+    display: flex;
+    padding: 25px;
+    top: 0px;
+    left: 0px;
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box;
+    background-color: var(--dark-gray);
+    border-radius: 5px;
+    z-index: 2;
+    align-items: center;
+    justify-content: center;
+}
+
+.loading-menu p {
+    font-size: 22pt;
+    font-weight: bold;
+}
+
+.popup-menu {
+    position: absolute;
+    padding: 25px;
+    top: 0px;
+    left: 0px;
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box;
+    background-color: var(--dark-gray);
+    border-radius: 5px;
+}
+
+.heading-container {
+    position: relative;
+}
+
+.heading-container p {
+    display: flex;
+    justify-content: center;
+    font-size: 22pt;
+    font-weight: bold;
+}
+
+.popup-menu form {
+    display: grid;
+    row-gap: 25px;
+}
+
+.popup-menu form label {
+    font-size: 14pt;
+}
+
+.play-as-container {
+    display: grid;
+    row-gap: 15px;
+}
+
+.play-against-container {
+    display: grid;
+    row-gap: 15px;
+}
+
+.time-control-container {
+    display: grid;
+    row-gap: 15px;
+}
+
+input[type=submit] {
+    height: 50px;
+    background-color: var(--accent);
+    border: none;
+    border-radius: 5px;
+    font-size: 18pt;
+    font-weight: bold;
+    color: var(--white);
+    transition: box-shadow 0.1s;
+}
+
+input[type=submit]:hover {
+    border: 2px solid var(--accent);
+    box-shadow: 0 0 14px var(--accent);
+}
+
+input[type=radio] {
+    appearance: none;
+    width: 35px;
+    height: 35px;
+    border-radius: 5px;
+    outline-offset: 2px;
+}
+
+input[type=radio]:checked {
+    outline: 2px solid var(--accent);
+}
+
+select {
+    background-color: var(--light-gray);
+    border: none;
+    height: 35px;
+    width: 100%;
+    border-radius: 5px;
+    color: var(--white);
+    font-size: 12pt;
+    padding-left: 10px;
+}
+
+.black-button {
+    background-color: #000000;
+}
+
+.white-button {
+    background-color: #ffffff;
+}
+
+.time-controls {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, 60px);
+    gap: 10px;
+}
+
+.time-controls input[type=radio] {
+    width: 100%;
+    background-color: var(--light-gray);
+    margin: 0px;
+    padding: 0px;
+}
+
+.time-controls div {
+    position: relative;
+}
+
+.time-controls div label {
+    position: absolute;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    top: 0px;
+    left: 0px;
+    width: 100%;
+    height: 35px;
+}
+
+.promotion-container {
+    display: none;
+    position: absolute;
+    top: 0px;
+    left: 0px;
+    height: 100%;
+    width: 100%;
+    border-radius: 5px;
+    background-color: rgba(0.0, 0.0, 0.0, 0.2);
+    z-index: 3;
+}
+
+.promotion-menu {
+    position: absolute;
+    width: 70%;
+    height: fit-content;
+    top: 50%;
+    left: 50%;
+    box-sizing: border-box;
+    transform: translate(-50%, -50%);
+    border-radius: 5px;
+    background-color: var(--mid-gray);
+    z-index: 3;
+}
+
+.promotion-menu p {
+    display: flex;
+    font-size: 22pt;
+    font-weight: bold;
+    align-items: center;
+    justify-content: center;
+    padding: 30px;
+}
+
+.promotion-buttons {
+    display: grid;
+    grid-template-columns: auto auto auto auto;
+    column-gap: 10px;
+    padding: 10px;
+}
+
+.promotion-buttons button {
+    width: 100%;
+    aspect-ratio: 1;
+    border: none;
+    background-color: var(--mid-gray);
+}
+
+.promotion-buttons button:hover {
+    background-color: var(--light-gray);
+}
+
+.promote-icon {
+    height: 73%;
+    width: auto;
+    filter: invert(1);
 }

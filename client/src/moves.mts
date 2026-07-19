@@ -1,32 +1,101 @@
-import { BOARD_SIZE, Board, IsWhite, SameColor, type OctalDigit, type Piece } from "./board.mjs";
+import {
+    BOARD_SIZE,
+    Board,
+    isWhite,
+    MoveData,
+    sameColor,
+    Square,
+    type Color,
+    type OctalDigit,
+    type Piece,
+} from "./board.mjs";
 
-export function GetMoves(board: Board, square: number): number[] {
-    switch (board.squares[square]) {
+export function getMoves(board: Board, square: number): number[] {
+    var pseudoLegals: number[];
+
+    switch (board.squares[square] as Piece) {
         case " ":
             return [];
         case "p":
         case "P":
-            return GetPawnMoves(board, square);
+            pseudoLegals = getPawnMoves(board, square);
+            break;
         case "n":
         case "N":
-            return GetKnightMoves(board, square);
+            pseudoLegals = getKnightMoves(board, square);
+            break;
         case "b":
         case "B":
-            return GetBishopMoves(board, square);
+            pseudoLegals = getBishopMoves(board, square);
+            break;
         case "r":
         case "R":
-            return GetRookMoves(board, square);
+            pseudoLegals = getRookMoves(board, square);
+            break;
         case "q":
         case "Q":
-            return GetQueenMoves(board, square);
+            pseudoLegals = getQueenMoves(board, square);
+            break;
         case "k":
         case "K":
-            return GetKingMoves(board, square);
+            pseudoLegals = getKingMoves(board, square);
+            break;
     }
-    throw new Error("Getting moves for unexpected piece");
+
+    const enemy: Color = isWhite(board.squares[square] as Piece) ? "black" : "white";
+    var legals: number[] = [];
+    for (const move of pseudoLegals) {
+        const moveData: MoveData = board.makeMove(Square.fromIndex(square), Square.fromIndex(move));
+
+        const enemyAttacks: boolean[] = board.getAllAttacks(enemy);
+        var isSafe: boolean = true;
+        for (let i = 0; i < BOARD_SIZE * BOARD_SIZE; i++) {
+            if (
+                sameColor(moveData.piece, board.squares[i] as Piece) &&
+                (board.squares[i] === "k" || board.squares[i] === "K") &&
+                enemyAttacks[i]
+            ) {
+                isSafe = false;
+                break;
+            }
+        }
+
+        if (isSafe) {
+            legals.push(move);
+        }
+
+        board.unmakeMove(moveData);
+    }
+
+    return legals;
 }
 
-function GetPawnMoves(board: Board, square: number) {
+export function getAttacks(board: Board, square: number): number[] {
+    switch (board.squares[square] as Piece) {
+        case " ":
+            return [];
+        case "p":
+        case "P":
+            return getPawnAttacks(board, square);
+        case "n":
+        case "N":
+            return getKnightMoves(board, square);
+        case "b":
+        case "B":
+            return getBishopMoves(board, square);
+        case "r":
+        case "R":
+            return getRookMoves(board, square);
+        case "q":
+        case "Q":
+            return getQueenMoves(board, square);
+        case "k":
+        case "K":
+            return getKingAttacks(board, square);
+    }
+}
+
+function getPawnMoves(board: Board, square: number) {
     const piece: Piece = board.squares[square]!;
     if (piece != "p" && piece != "P") {
         throw new Error("Expected pawn in square");
@@ -35,10 +104,10 @@ function GetPawnMoves(board: Board, square: number) {
     const moves: number[] = [];
 
     const isStartSquare: boolean =
-        IsWhite(piece) == board.isWhite
+        isWhite(piece) == board.isWhite
             ? Math.floor(square / BOARD_SIZE) == 6
             : Math.floor(square / BOARD_SIZE) == 1;
-    const direction: number = IsWhite(piece) == board.isWhite ? -1 : 1;
+    const direction: number = isWhite(piece) == board.isWhite ? -1 : 1;
 
     const singlePush: number = square + direction * BOARD_SIZE;
     const doublePush: number = square + direction * BOARD_SIZE * 2;
@@ -49,26 +118,67 @@ function GetPawnMoves(board: Board, square: number) {
         }
     }
 
-    const possibleCaptures: number[] = [
-        square + direction * BOARD_SIZE - 1,
-        square + direction * BOARD_SIZE + 1,
+    const squareX: OctalDigit = (square % BOARD_SIZE) as OctalDigit;
+    const squareY: OctalDigit = Math.floor(square / BOARD_SIZE) as OctalDigit;
+
+    const offsets: number[][] = [
+        [1, 1],
+        [-1, 1],
     ];
-    for (const capture of possibleCaptures) {
-        const capturePiece: Piece = board.squares[capture]!;
-        if (
-            capture >= 0 &&
-            capture < BOARD_SIZE * BOARD_SIZE &&
-            ((capturePiece !== " " && !SameColor(piece, capturePiece)) ||
-                capture == board.enPassantSquare)
-        ) {
-            moves.push(capture);
+    for (const offset of offsets) {
+        const moveX: OctalDigit = (squareX + offset[0]! * direction) as OctalDigit;
+        const moveY: OctalDigit = (squareY + offset[1]! * direction) as OctalDigit;
+        if (moveX >= 0 && moveX < 8 && moveY >= 0 && moveY < 8) {
+            const move: number = moveY * BOARD_SIZE + moveX;
+            const movePiece: Piece = board.squares[move]!;
+            if (
+                (movePiece !== " " && !sameColor(piece, movePiece)) ||
+                move === board.enPassantSquare
+            ) {
+                moves.push(move);
+            }
         }
     }
 
     return moves;
 }
 
-function GetKnightMoves(board: Board, square: number): number[] {
+function getPawnAttacks(board: Board, square: number): number[] {
+    const piece: Piece = board.squares[square]!;
+    if (piece != "p" && piece != "P") {
+        throw new Error("Expected pawn in square");
+    }
+
+    const moves: number[] = [];
+
+    const direction: number = isWhite(piece) == board.isWhite ? -1 : 1;
+
+    const squareX: OctalDigit = (square % BOARD_SIZE) as OctalDigit;
+    const squareY: OctalDigit = Math.floor(square / BOARD_SIZE) as OctalDigit;
+
+    const offsets: number[][] = [
+        [1, 1],
+        [-1, 1],
+    ];
+    for (const offset of offsets) {
+        const moveX: OctalDigit = (squareX + offset[0]! * direction) as OctalDigit;
+        const moveY: OctalDigit = (squareY + offset[1]! * direction) as OctalDigit;
+        if (moveX >= 0 && moveX < 8 && moveY >= 0 && moveY < 8) {
+            const move: number = moveY * BOARD_SIZE + moveX;
+            const movePiece: Piece = board.squares[move]!;
+            if (
+                (movePiece !== " " && !sameColor(piece, movePiece)) ||
+                move === board.enPassantSquare
+            ) {
+                moves.push(move);
+            }
+        }
+    }
+
+    return moves;
+}
+
+function getKnightMoves(board: Board, square: number): number[] {
     const piece: Piece = board.squares[square]!;
     if (piece != "n" && piece != "N") {
         throw new Error("Expected knight in square");
@@ -95,7 +205,7 @@ function GetKnightMoves(board: Board, square: number): number[] {
         if (moveX >= 0 && moveX < 8 && moveY >= 0 && moveY < 8) {
             const move: number = moveY * BOARD_SIZE + moveX;
             const movePiece: Piece = board.squares[move]!;
-            if (movePiece === " " || !SameColor(piece, movePiece)) {
+            if (movePiece === " " || !sameColor(piece, movePiece)) {
                 moves.push(move);
             }
         }
@@ -104,7 +214,7 @@ function GetKnightMoves(board: Board, square: number): number[] {
     return moves;
 }
 
-function GetKingMoves(board: Board, square: number): number[] {
+function getKingMoves(board: Board, square: number): number[] {
     const piece: Piece = board.squares[square]!;
     if (piece != "k" && piece != "K") {
         throw new Error("Expected king in square");
@@ -131,42 +241,133 @@ function GetKingMoves(board: Board, square: number): number[] {
         if (moveX >= 0 && moveX < 8 && moveY >= 0 && moveY < 8) {
             const move: number = moveY * BOARD_SIZE + moveX;
             const movePiece: Piece = board.squares[move]!;
-            if (movePiece === " " || !SameColor(piece, movePiece)) {
+            if (movePiece === " " || !sameColor(piece, movePiece)) {
                 moves.push(move);
             }
         }
     }
 
-    // TODO: Castling
+    // Castling
+    // | 56 | 57 | 58 | 59 | 60 | 61 | 62 | 63 |
+    //   R         ^^        K         ^^   R
+
+    // If playing white, then white is at bottom, 56-63@60
+    // If playing black, then white is at top, 0-7@4
+
+    const enemyAttacks: boolean[] = board.getAllAttacks(isWhite(piece) ? "black" : "white");
+
+    if (isWhite(piece)) {
+        const king: number = board.isWhite ? 60 : 4;
+        if (
+            board.whiteCanCastleLong &&
+            board.squares[king - 1] === " " &&
+            board.squares[king - 2] === " " &&
+            !enemyAttacks[king] &&
+            !enemyAttacks[king - 1] &&
+            !enemyAttacks[king - 2]
+        ) {
+            moves.push(king - 2);
+        }
+
+        if (
+            board.whiteCanCastleShort &&
+            board.squares[king + 1] === " " &&
+            board.squares[king + 2] === " " &&
+            !enemyAttacks[king] &&
+            !enemyAttacks[king + 1] &&
+            !enemyAttacks[king + 2]
+        ) {
+            moves.push(king + 2);
+        }
+    } else {
+        const king: number = board.isWhite ? 4 : 60;
+        if (
+            board.blackCanCastleLong &&
+            board.squares[king - 1] === " " &&
+            board.squares[king - 2] === " " &&
+            !enemyAttacks[king] &&
+            !enemyAttacks[king - 1] &&
+            !enemyAttacks[king - 2]
+        ) {
+            moves.push(king - 2);
+        }
+
+        if (
+            board.blackCanCastleShort &&
+            board.squares[king + 1] === " " &&
+            board.squares[king + 2] === " " &&
+            !enemyAttacks[king] &&
+            !enemyAttacks[king + 1] &&
+            !enemyAttacks[king + 2]
+        ) {
+            moves.push(king + 2);
+        }
+    }
 
     return moves;
 }
 
-function GetBishopMoves(board: Board, square: number): number[] {
+function getKingAttacks(board: Board, square: number): number[] {
+    const piece: Piece = board.squares[square]!;
+    if (piece != "k" && piece != "K") {
+        throw new Error("Expected king in square");
+    }
+
+    const moves: number[] = [];
+
+    const squareX: OctalDigit = (square % BOARD_SIZE) as OctalDigit;
+    const squareY: OctalDigit = Math.floor(square / BOARD_SIZE) as OctalDigit;
+
+    const offsets: number[][] = [
+        [1, 1],
+        [1, 0],
+        [1, -1],
+        [0, 1],
+        [0, -1],
+        [-1, 1],
+        [-1, 0],
+        [-1, -1],
+    ];
+    for (const offset of offsets) {
+        const moveX: OctalDigit = (squareX + offset[0]!) as OctalDigit;
+        const moveY: OctalDigit = (squareY + offset[1]!) as OctalDigit;
+        if (moveX >= 0 && moveX < 8 && moveY >= 0 && moveY < 8) {
+            const move: number = moveY * BOARD_SIZE + moveX;
+            const movePiece: Piece = board.squares[move]!;
+            if (movePiece === " " || !sameColor(piece, movePiece)) {
+                moves.push(move);
+            }
+        }
+    }
+
+    return moves;
+}
+
+function getBishopMoves(board: Board, square: number): number[] {
     const piece: Piece = board.squares[square]!;
     if (piece != "b" && piece != "B") {
         throw new Error("Expected bishop in square");
     }
-    return GetSliderMoves(board, square, false, true);
+    return getSliderMoves(board, square, false, true);
 }
 
-function GetRookMoves(board: Board, square: number): number[] {
+function getRookMoves(board: Board, square: number): number[] {
     const piece: Piece = board.squares[square]!;
     if (piece != "r" && piece != "R") {
         throw new Error("Expected rook in square");
     }
-    return GetSliderMoves(board, square, true, false);
+    return getSliderMoves(board, square, true, false);
 }
 
-function GetQueenMoves(board: Board, square: number): number[] {
+function getQueenMoves(board: Board, square: number): number[] {
     const piece: Piece = board.squares[square]!;
     if (piece != "q" && piece != "Q") {
         throw new Error("Expected queen in square");
     }
-    return GetSliderMoves(board, square, true, true);
+    return getSliderMoves(board, square, true, true);
 }
 
-function GetSliderMoves(
+function getSliderMoves(
     board: Board,
     square: number,
     orthogonal: boolean,
@@ -205,7 +406,7 @@ function GetSliderMoves(
 
             if (movePiece === " ") {
                 moves.push(move);
-            } else if (SameColor(piece, movePiece)) {
+            } else if (sameColor(piece, movePiece)) {
                 break;
             } else {
                 moves.push(move);

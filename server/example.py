@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
-import libchess
+# import libchess
+from libchess import Board
 
 # ========== Create a board ==========
 
@@ -8,7 +9,7 @@ import libchess
 # board = libchess.Board()
 
 # Alternatively Arbitrary position FEN
-board = libchess.Board("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1")
+board: Board = Board("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1")
 
 # ========== Check for errors ==========
 
@@ -20,10 +21,10 @@ if board.has_error():
 # ========== Search for best move ==========
 
 # Time limit currently unimplemented, for reference only
-time_limit_ms = 1000
+time_limit_ms: int = 1000
 
 # Long algebraic notation (e.g. e2e4)
-best_move = board.go(time_limit_ms)
+best_move: str = board.go(time_limit_ms)
 print(f"Best Move: {best_move}")
 
 # ========== Update Board State ==========

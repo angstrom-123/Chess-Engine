@@ -9,36 +9,113 @@
     <div class="container">
         <div class="side-bar">
             <button>Jupiter Client</button>
-            <button>Menu</button>
             <button onclick="window.open('https://github.com/angstrom-123/Chess-Engine', '_blank')">GitHub</button>
         </div>
         <div class="content">
-            <div class="cards-container">
-                <div class="card">
-                    <div class="card-name">
-                        <p>Opponent</p>
+            <div class="cards-parent">
+                <div class="cards-container">
+                    <div class="card">
+                        <div class="card-name">
+                            <p>Opponent</p>
+                        </div>
+                        <div class="card-timer">
+                            <p><span id="opponent-timer">60:00</span></p>
+                        </div>
                     </div>
-                    <div class="card-timer">
-                        <p>60:00</p>
+                    <div class="card">
+                        <div class="card-name">
+                            <p>You</p>
+                        </div>
+                        <div class="card-timer">
+                            <p><span id="friendly-timer">60:00</span></p>
+                        </div>
                     </div>
                 </div>
-                <div class="card">
-                    <div class="card-name">
-                        <p>You</p>
+                <div id="setup-game-menu" class="popup-menu">
+                    <div class="heading-container">
+                        <p>Game Setup</p>
                     </div>
-                    <div class="card-timer">
-                        <p>60:00</p>
-                    </div>
+                    <form id="setup-game-form" onsubmit="return false;">
+                        <div class="play-as-container">
+                            <label>Play as</label>
+                            <div class="play-as">
+                                <input type="radio" value="white" name="play-as" class="white-button" checked="checked">
+                                <input type="radio" value="black" name="play-as" class="black-button">
+                            </div>
+                        </div>
+                        <div class="play-against-container">
+                            <label>Play against</label>
+                            <div class="play-against">
+                                <select name="play-against" value="play-against">
+                                    <option value="local">Local Opponent</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="time-control-container">
+                            <label>Time Control</label>
+                            <div class="time-controls">
+                                <div>
+                                    <input type="radio" value="1" id="1min" name="time-control">
+                                    <label for="1min">1 min</label>
+                                </div>
+                                <div>
+                                    <input type="radio" value="3" id="3min" name="time-control" checked="checked">
+                                    <label for="3min">3 min</label>
+                                </div>
+                                <div>
+                                    <input type="radio" value="5" id="5min" name="time-control">
+                                    <label for="5min">5 min</label>
+                                </div>
+                                <div>
+                                    <input type="radio" value="1+1" id="1min+1" name="time-control">
+                                    <label for="1min+1">1 + 1</label>
+                                </div>
+                                <div>
+                                    <input type="radio" value="3+2" id="3min+2" name="time-control">
+                                    <label for="3min+2">3 + 2</label>
+                                </div>
+                                <div>
+                                    <input type="radio" value="5+5" id="5min+5" name="time-control">
+                                    <label for="5min+5">5 + 5</label>
+                                </div>
+                            </div>
+                        </div>
+                        <input type="submit" value="Start Game">
+                    </form>
+                </div>
+                <div id="loading-menu" class="loading-menu">
+                    <p>Loading...</p>
                 </div>
             </div>
             <div class="board-container">
-                <canvas class="board-canvas"></canvas>
-                <canvas class="sprite-canvas"></canvas>
+                <div id="promotion-menu" class="promotion-container">
+                    <div class="promotion-menu">
+                        <p>Promote</p>
+                        <div class="promotion-buttons">
+                            <button id="promote-knight">
+                                <img src="assets/sprites/b_knight_svg_NoShadow.svg" class="promote-icon" draggable="false">
+                            </button>
+                            <button id="promote-bishop">
+                                <img src="assets/sprites/b_bishop_svg_NoShadow.svg" class="promote-icon" draggable="false">
+                            </button> 
+                            <button id="promote-rook">
+                                <img src="assets/sprites/b_rook_svg_NoShadow.svg" class="promote-icon" draggable="false">
+                            </button>
+                            <button id="promote-queen">
+                                <img src="assets/sprites/b_queen_svg_NoShadow.svg" class="promote-icon" draggable="false">
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <canvas id="board-canvas" class="board-canvas"></canvas>
+                <canvas id="sprite-canvas" class="sprite-canvas"></canvas>
             </div>
         </div>
     </div>
+
+    </div>
 </body>
-<script type="module" src="assets/dist/moves.mjs"></script>
-<script type="module" src="assets/dist/board.mjs"></script>
-<script type="module" src="assets/dist/index.mjs"></script>
+<script type="module" src="assets/dist/moves.mjs" defer></script>
+<script type="module" src="assets/dist/board.mjs" defer></script>
+<script type="module" src="assets/dist/index.mjs" defer></script>
 </html>

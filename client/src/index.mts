@@ -1,10 +1,10 @@
-import { BOARD_SIZE, Square, Board } from "./board.mjs";
+import { Board, getTimeControl, type Color, type TimeControl } from "./board.mjs";
 
-async function Main() {
+async function main() {
     const board = new Board();
 
     // prettier-ignore
-    await board.Init("white", 60, 1, [
+    await board.init([
         "r", "n", "b", "q", "k", "b", "n", "r",
         "p", "p", "p", "p", "p", "p", "p", "p",
         " ", " ", " ", " ", " ", " ", " ", " ",
@@ -15,29 +15,53 @@ async function Main() {
         "R", "N", "B", "Q", "K", "B", "N", "R",
     ]);
 
-    board.DrawBoard();
-    board.DrawPieces();
-}
+    // Hide loading menu now that initialization is complete
+    const loadingMenu: HTMLElement = document.getElementById("loading-menu")!;
+    loadingMenu.style.display = "none";
 
-async function APICall(endpoint: string) {
-    const url = "http://localhost:8000" + endpoint;
-    try {
-        const response = await fetch(url, {
-            method: "GET",
-            headers: {
-                Accept: "application/json",
+    const form: HTMLElement = document.getElementById("setup-game-form")!;
+    const menu: HTMLElement = document.getElementById("setup-game-menu")!;
+    form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        menu.style.display = "none";
+
+        const formElement: HTMLFormElement = e.target! as HTMLFormElement;
+        const formData: FormData = new FormData(formElement);
+
+        const playAs: Color = formData.get("play-as")! as Color;
+        const playAgainst: string = formData.get("play-against")! as string;
+        const timeControl: TimeControl = formData.get("time-control")! as TimeControl;
+
+        await apiCall("/game-start/", "POST", {
+            play_as: playAs,
+            play_against: playAgainst,
+            time_control: {
+                time: getTimeControl(timeControl)[0],
+                increment: getTimeControl(timeControl)[1],
             },
         });
-        if (!response.ok) {
-            console.error("API Call failed with status: " + response.status);
-        }
 
-        const value = await response.json();
-        return value;
-    } catch (e: any) {
-        console.error("API Call failed: " + e.message);
-        return {};
-    }
+        board.start(playAs, timeControl);
+    });
 }
 
-Main();
+async function apiCall(endpoint: string, method: string, body: Object = {}): Promise<Object> {
+    const url = "http://localhost:8000" + endpoint;
+    console.log("String version\n" + JSON.stringify(body));
+    return await fetch(url, {
+        method: method,
+        headers: {
+            Accept: "application/json",
+        },
+        body: JSON.stringify(body),
+    }).then(async (res: Response) => {
+        if (!res.ok) {
+            console.error(`API Call failed to '${endpoint}'`);
+            return {};
+        }
+
+        return await res.json();
+    });
+}
+
+main();

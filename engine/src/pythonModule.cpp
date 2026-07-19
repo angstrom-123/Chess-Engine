@@ -84,7 +84,7 @@ namespace py {
         if (!self->board)
             return nullptr;
         char *lan = nullptr;
-        if (!PyArg_ParseTuple(args, "|s", &lan))
+        if (!PyArg_ParseTuple(args, "s", &lan))
             return nullptr;
         LongAlgebraicMove move = LongAlgebraicMove::FromChars(lan);
         if (!LongAlgebraicMove::IsValid(move))
