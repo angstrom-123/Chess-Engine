@@ -15,16 +15,16 @@ LongAlgebraicMove LongAlgebraicMove::FromChars(char *chars)
         return LongAlgebraicMove::Invalid();
 
     LongAlgebraicMove move;
-    move.chars[0] = chars[0];
-    move.chars[1] = chars[1];
-    move.chars[2] = chars[2];
-    move.chars[3] = chars[3];
+    move.from[0] = chars[0];
+    move.from[1] = chars[1];
+    move.to[0] = chars[2];
+    move.to[1] = chars[3];
 
     if (len == 5) {
-        if (chars[4] != 'n' || chars[4] != 'b' || chars[4] != 'r' || chars[4] != 'q')
+        if (chars[4] != 'n' && chars[4] != 'b' && chars[4] != 'r' && chars[4] != 'q')
             return LongAlgebraicMove::Invalid();
 
-        move.chars[4] = chars[4];
+        move.promote = chars[4];
     }
     return move;
 }

@@ -21,3 +21,8 @@ libchess = ["*.so", "*.pyd"]
 
 [tool.fastapi]
 entrypoint = "server.main:app"
+
+[tool.basedpyright]
+extraPaths = ["./server"]
+venvPath = "."
+venv = ".venv"

@@ -1,4 +1,18 @@
-import { Board, getTimeControl, type Color, type TimeControl } from "./board.mjs";
+import { Board, type TimeControl } from "./board.mjs";
+
+interface EngineListResponse {
+    engines: string[];
+}
+
+interface EngineMoveResponse {
+    move_lan: string;
+}
+
+interface APICallInfo {
+    endpoint: string;
+    method: string;
+    body?: Object;
+}
 
 async function main() {
     const board = new Board();
@@ -15,49 +29,127 @@ async function main() {
         "R", "N", "B", "Q", "K", "B", "N", "R",
     ]);
 
+    // Add playable engines to UI
+    const { engines } = (await retryApiCall({
+        endpoint: "/engine-list/",
+        method: "GET",
+    })) as EngineListResponse;
+
+    for (const engine of engines) {
+        for (const selectElement of [
+            document.getElementById("white-player")!,
+            document.getElementById("black-player")!,
+        ]) {
+            const option: HTMLOptionElement = document.createElement("option") as HTMLOptionElement;
+            option.value = engine;
+            option.innerText = engine;
+
+            selectElement.appendChild(option);
+        }
+    }
+
     // Hide loading menu now that initialization is complete
-    const loadingMenu: HTMLElement = document.getElementById("loading-menu")!;
+    const loadingMenu: HTMLDivElement = document.getElementById("loading-menu")! as HTMLDivElement;
     loadingMenu.style.display = "none";
 
-    const form: HTMLElement = document.getElementById("setup-game-form")!;
-    const menu: HTMLElement = document.getElementById("setup-game-menu")!;
+    // Initialize game setup form
+    const form: HTMLFormElement = document.getElementById("setup-game-form")! as HTMLFormElement;
+    const menu: HTMLDivElement = document.getElementById("setup-game-menu")! as HTMLDivElement;
     form.addEventListener("submit", async (e) => {
         e.preventDefault();
         menu.style.display = "none";
 
+        // Read Form
         const formElement: HTMLFormElement = e.target! as HTMLFormElement;
         const formData: FormData = new FormData(formElement);
 
-        const playAs: Color = formData.get("play-as")! as Color;
-        const playAgainst: string = formData.get("play-against")! as string;
+        const whitePlayer: string = formData.get("white-player")! as string;
+        const blackPlayer: string = formData.get("black-player")! as string;
         const timeControl: TimeControl = formData.get("time-control")! as TimeControl;
 
-        await apiCall("/game-start/", "POST", {
-            play_as: playAs,
-            play_against: playAgainst,
-            time_control: {
-                time: getTimeControl(timeControl)[0],
-                increment: getTimeControl(timeControl)[1],
+        const friendlyLabel: HTMLParagraphElement = document.getElementById(
+            "friendly-label",
+        ) as HTMLParagraphElement;
+        const opponentLabel: HTMLParagraphElement = document.getElementById(
+            "opponent-label",
+        ) as HTMLParagraphElement;
+
+        console.log(whitePlayer, blackPlayer);
+
+        var flipBoard: boolean = false;
+        if (whitePlayer === "Local") {
+            friendlyLabel.innerText = whitePlayer;
+            opponentLabel.innerText = blackPlayer;
+        } else if (blackPlayer === "Local") {
+            friendlyLabel.innerText = blackPlayer;
+            opponentLabel.innerText = whitePlayer;
+            flipBoard = true;
+        }
+
+        await retryApiCall({
+            endpoint: "/game-start/",
+            method: "POST",
+            body: {
+                white_player: whitePlayer,
+                black_player: blackPlayer,
             },
         });
-
-        board.start(playAs, timeControl);
+        await board.start({
+            whitePlayer: whitePlayer,
+            blackPlayer: blackPlayer,
+            timeControl: timeControl,
+            flipBoard: flipBoard,
+            getMoveApiCall: getEngineMove,
+            makeMoveApiCall: makeEngineMove,
+        });
     });
 }
 
-async function apiCall(endpoint: string, method: string, body: Object = {}): Promise<Object> {
-    const url = "http://localhost:8000" + endpoint;
-    console.log("String version\n" + JSON.stringify(body));
-    return await fetch(url, {
+async function makeEngineMove(moveLan: string): Promise<void> {
+    await retryApiCall({
+        endpoint: "/make-move/",
+        method: "POST",
+        body: {
+            move_lan: moveLan,
+        },
+    });
+}
+
+async function getEngineMove(timeLeftMs: number): Promise<string> {
+    const { move_lan } = (await retryApiCall({
+        endpoint: "/best-move/",
+        method: "POST",
+        body: {
+            ms_left: timeLeftMs,
+        },
+    })) as EngineMoveResponse;
+    return move_lan;
+}
+
+async function retryApiCall(callInfo: APICallInfo, retries: number = 2): Promise<Object> {
+    for (let i = 0; i < retries; i++) {
+        const res: Object | undefined = await apiCall(callInfo);
+        if (res !== undefined) return res;
+    }
+    throw new Error(`API call to ${callInfo.endpoint} failed after ${retries} retries`);
+}
+
+async function apiCall({ endpoint, method, body }: APICallInfo): Promise<Object | undefined> {
+    const request: RequestInit = {
         method: method,
         headers: {
+            "Content-Type": "application/json",
             Accept: "application/json",
         },
-        body: JSON.stringify(body),
-    }).then(async (res: Response) => {
+    };
+    // Only add a body field if one is supplied
+    if (body !== undefined) request.body = JSON.stringify(body);
+
+    const url = "http://localhost:8000" + endpoint;
+    return await fetch(url, request).then(async (res: Response) => {
         if (!res.ok) {
             console.error(`API Call failed to '${endpoint}'`);
-            return {};
+            return undefined;
         }
 
         return await res.json();

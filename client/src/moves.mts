@@ -104,10 +104,10 @@ function getPawnMoves(board: Board, square: number) {
     const moves: number[] = [];
 
     const isStartSquare: boolean =
-        isWhite(piece) == board.isWhite
+        isWhite(piece) == !board.boardFlipped
             ? Math.floor(square / BOARD_SIZE) == 6
             : Math.floor(square / BOARD_SIZE) == 1;
-    const direction: number = isWhite(piece) == board.isWhite ? -1 : 1;
+    const direction: number = isWhite(piece) == !board.boardFlipped ? -1 : 1;
 
     const singlePush: number = square + direction * BOARD_SIZE;
     const doublePush: number = square + direction * BOARD_SIZE * 2;
@@ -151,7 +151,7 @@ function getPawnAttacks(board: Board, square: number): number[] {
 
     const moves: number[] = [];
 
-    const direction: number = isWhite(piece) == board.isWhite ? -1 : 1;
+    const direction: number = isWhite(piece) == !board.boardFlipped ? -1 : 1;
 
     const squareX: OctalDigit = (square % BOARD_SIZE) as OctalDigit;
     const squareY: OctalDigit = Math.floor(square / BOARD_SIZE) as OctalDigit;
@@ -257,7 +257,7 @@ function getKingMoves(board: Board, square: number): number[] {
     const enemyAttacks: boolean[] = board.getAllAttacks(isWhite(piece) ? "black" : "white");
 
     if (isWhite(piece)) {
-        const king: number = board.isWhite ? 60 : 4;
+        const king: number = !board.boardFlipped ? 60 : 4;
         if (
             board.whiteCanCastleLong &&
             board.squares[king - 1] === " " &&
@@ -280,7 +280,7 @@ function getKingMoves(board: Board, square: number): number[] {
             moves.push(king + 2);
         }
     } else {
-        const king: number = board.isWhite ? 4 : 60;
+        const king: number = !board.boardFlipped ? 4 : 60;
         if (
             board.blackCanCastleLong &&
             board.squares[king - 1] === " " &&

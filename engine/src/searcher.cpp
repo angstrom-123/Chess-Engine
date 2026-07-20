@@ -9,6 +9,7 @@
 #include <immintrin.h>
 #include <iomanip>
 #include <iostream>
+#include <stdexcept>
 
 const uint8_t DEPTH = 7;
 const uint8_t MAX_QUIESCENCE_PLY = 6;
@@ -118,7 +119,7 @@ int64_t Searcher::Search(BoardState& state, int64_t alpha, int64_t beta, uint8_t
 {
     pv.Resize(0);
 
-    if (depth == 0)
+    if (depth == 0) 
         return Quiesce(state, alpha, beta, 0);
 
     int64_t max = -INT64_MAX;

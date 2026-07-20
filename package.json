@@ -1,8 +1,9 @@
 {
   "scripts": {
-    "format": "prettier --write ./client/src",
     "dev": "tsc && fastapi dev",
-    "start": "tsc && fastapi run"
+    "start": "tsc && fastapi run",
+    "format": "prettier --write ./client/src",
+    "reinstall": "make -C build && uv pip install -e . --force-reinstall"
   },
 
   "devDependencies": {

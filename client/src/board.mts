@@ -76,6 +76,38 @@ export class MoveData {
     public isCastles: boolean;
     public isPromotion: boolean;
 
+    private boardFlipped: boolean;
+    private promotedTo: Piece = " ";
+
+    public toLan(): string {
+        var fromCol: number = this.from % BOARD_SIZE;
+        var fromRow: number = 7 - Math.floor(this.from / BOARD_SIZE);
+        var toCol: number = this.to % BOARD_SIZE;
+        var toRow: number = 7 - Math.floor(this.to / BOARD_SIZE);
+
+        if (this.boardFlipped) {
+            fromCol = 7 - fromCol;
+            fromRow = 7 - fromRow;
+            toCol = 7 - toCol;
+            toRow = 7 - toRow;
+        }
+
+        const fromColChar: string = String.fromCharCode("a".charCodeAt(0) + fromCol);
+        const fromRowChar: string = String.fromCharCode("1".charCodeAt(0) + fromRow);
+        const toColChar: string = String.fromCharCode("a".charCodeAt(0) + toCol);
+        const toRowChar: string = String.fromCharCode("1".charCodeAt(0) + toRow);
+
+        var lan: string = fromColChar + fromRowChar + toColChar + toRowChar;
+        if (this.isPromotion)
+            lan += this.promotedTo;
+
+        return lan;
+    }
+
+    public setPromotion(piece: Piece) {
+        this.promotedTo = piece;
+    }
+
     constructor(from: number, to: number, board: Board) {
         this.from = from;
         this.to = to;
@@ -89,6 +121,8 @@ export class MoveData {
         this.whiteTurn = board.whiteTurn;
         this.isCastles = (this.piece === "k" || this.piece === "K") && Math.abs(from - to) === 2;
         this.isPromotion = (this.piece === "p" || this.piece === "P") && (to < 8 || to > 55);
+
+        this.boardFlipped = board.boardFlipped;
     }
 }
 
@@ -100,16 +134,27 @@ export function isWhite(piece: Piece) {
     return piece.charCodeAt(0) < 91;
 }
 
+export interface BoardStartInfo {
+    whitePlayer: string;
+    blackPlayer: string;
+    timeControl: TimeControl;
+    flipBoard: boolean;
+    getMoveApiCall: (timeLeftMs: number) => Promise<string>;
+    makeMoveApiCall: (moveLan: string) => Promise<void>;
+}
+
 export class Board {
     public squares: Piece[];
     public attacks: boolean[][];
-    public isWhite: boolean = true;
+    public boardFlipped: boolean = false;
     public enPassantSquare: number = -1;
     public whiteCanCastleLong: boolean = true;
     public whiteCanCastleShort: boolean = true;
     public blackCanCastleLong: boolean = true;
     public blackCanCastleShort: boolean = true;
     public whiteTurn: boolean = true;
+    public whitePlayer: string = "";
+    public blackPlayer: string = "";
 
     private started: boolean = false;
     private waitForStart: boolean = false;
@@ -128,9 +173,11 @@ export class Board {
     private spriteCanvas: HTMLCanvasElement;
     private boardCtx: CanvasRenderingContext2D;
     private spriteCtx: CanvasRenderingContext2D;
+    private getMoveApiCall: ((timeLeftMs: number) => Promise<string>) | undefined = undefined;
+    private makeMoveApiCall: ((moveLan: string) => Promise<void>) | undefined = undefined;
 
-    private friendlyTimer: CountdownTimer | null = null;
-    private opponentTimer: CountdownTimer | null = null;
+    public friendlyTimer: CountdownTimer | null = null;
+    public opponentTimer: CountdownTimer | null = null;
 
     constructor() {
         this.squares = new Array<Piece>(64) as Piece[];
@@ -159,10 +206,10 @@ export class Board {
         this.spriteCanvas.addEventListener("mouseup", (e) => this.onMouseUp(e));
         this.spriteCanvas.addEventListener("mousemove", (e) => this.onMouseMove(e));
         this.spriteCanvas.addEventListener("mouseleave", (e) => this.onMouseLeave(e));
-        this.promoteKnightButton.addEventListener("click", (e) => this.onPromote(e, "n"));
-        this.promoteBishopButton.addEventListener("click", (e) => this.onPromote(e, "b"));
-        this.promoteRookButton.addEventListener("click", (e) => this.onPromote(e, "r"));
-        this.promoteQueenButton.addEventListener("click", (e) => this.onPromote(e, "q"));
+        this.promoteKnightButton.addEventListener("click", async (e) => this.onPromote(e, "n"));
+        this.promoteBishopButton.addEventListener("click", async (e) => this.onPromote(e, "b"));
+        this.promoteRookButton.addEventListener("click", async (e) => this.onPromote(e, "r"));
+        this.promoteQueenButton.addEventListener("click", async (e) => this.onPromote(e, "q"));
     }
 
     public async init(squares: Piece[]) {
@@ -171,8 +218,19 @@ export class Board {
         await this.loadSprites();
     }
 
-    public start(color: Color, timeControl: TimeControl) {
-        this.isWhite = color === "white";
+    public async start({
+        whitePlayer,
+        blackPlayer,
+        timeControl,
+        flipBoard,
+        getMoveApiCall,
+        makeMoveApiCall,
+    }: BoardStartInfo) {
+        this.whitePlayer = whitePlayer;
+        this.blackPlayer = blackPlayer;
+        this.boardFlipped = flipBoard;
+        this.getMoveApiCall = getMoveApiCall;
+        this.makeMoveApiCall = makeMoveApiCall;
 
         const [time, increment] = getTimeControl(timeControl);
 
@@ -190,7 +248,7 @@ export class Board {
         );
         this.whiteTurn = true;
 
-        if (!this.isWhite) {
+        if (this.boardFlipped) {
             // Flip array
             const newSquares: Piece[] = new Array(64);
             for (let y = 0; y < BOARD_SIZE; y++) {
@@ -206,7 +264,46 @@ export class Board {
 
         this.drawBoard(); // Need to redraw in case playing as black (needs flip)
         this.drawPieces();
-        this.waitForStart = true;
+
+        if (this.whitePlayer === "Local") {
+            this.waitForStart = true;
+        } else {
+            this.startGame();
+            const move: string = await this.getMoveApiCall(
+                !this.boardFlipped ? this.friendlyTimer.getMs() : this.opponentTimer.getMs(),
+            );
+            await this.applyMoveLan(move);
+        }
+    }
+
+    public getRemainingMs(): number {
+        if (this.friendlyTimer === null || this.opponentTimer === null)
+            throw new Error("Getting remaining time for uninitialized timers");
+
+        if ((this.whiteTurn && !this.boardFlipped) || (!this.whiteTurn && this.boardFlipped))
+            return this.friendlyTimer.getMs();
+        return this.opponentTimer.getMs();
+    }
+
+    public async applyMoveLan(lan: string) {
+        if (this.makeMoveApiCall === undefined)
+            throw new Error("Make Move API Call must be defined");
+
+        await this.makeMoveApiCall(lan);
+        const [from, to, promote] = this.parseLAN(lan);
+        const moveData: MoveData = this.makeMove(from, to);
+        switch (promote) {
+            case "n":
+                this.squares[to.asIndex()] = moveData.whiteTurn ? "N" : "n";
+            case "b":
+                this.squares[to.asIndex()] = moveData.whiteTurn ? "B" : "b";
+            case "r":
+                this.squares[to.asIndex()] = moveData.whiteTurn ? "R" : "r";
+            case "q":
+                this.squares[to.asIndex()] = moveData.whiteTurn ? "Q" : "q";
+        }
+        this.updateAttacks();
+        await this.updateGame();
     }
 
     public makeMove(from: Square, to: Square): MoveData {
@@ -219,7 +316,10 @@ export class Board {
         // En Passant
         if (piece === "p" || piece === "P") {
             if (toIndex === this.enPassantSquare) {
-                if ((!isWhite(piece) && this.isWhite) || (isWhite(piece) && !this.isWhite)) {
+                if (
+                    (!isWhite(piece) && !this.boardFlipped) ||
+                    (isWhite(piece) && this.boardFlipped)
+                ) {
                     this.squares[this.enPassantSquare - BOARD_SIZE] = " ";
                 } else {
                     this.squares[this.enPassantSquare + BOARD_SIZE] = " ";
@@ -271,13 +371,13 @@ export class Board {
             }
 
             // Rook captured
-            if ((this.isWhite && toIndex === 56) || (!this.isWhite && toIndex === 0))
+            if ((!this.boardFlipped && toIndex === 56) || (this.boardFlipped && toIndex === 0))
                 this.whiteCanCastleLong = false;
-            if ((this.isWhite && toIndex === 63) || (!this.isWhite && toIndex === 7))
+            if ((!this.boardFlipped && toIndex === 63) || (this.boardFlipped && toIndex === 7))
                 this.whiteCanCastleShort = false;
-            if ((this.isWhite && toIndex === 0) || (!this.isWhite && toIndex === 56))
+            if ((!this.boardFlipped && toIndex === 0) || (this.boardFlipped && toIndex === 56))
                 this.blackCanCastleLong = false;
-            if ((this.isWhite && toIndex === 7) || (!this.isWhite && toIndex === 63))
+            if ((!this.boardFlipped && toIndex === 7) || (this.boardFlipped && toIndex === 63))
                 this.blackCanCastleShort = false;
         }
 
@@ -299,7 +399,7 @@ export class Board {
         const toIndex: number = moveData.to;
 
         if ((piece === "p" || piece === "P") && toIndex === moveData.enPassantSquare) {
-            if ((!isWhite(piece) && this.isWhite) || (isWhite(piece) && !this.isWhite)) {
+            if ((!isWhite(piece) && !this.boardFlipped) || (isWhite(piece) && this.boardFlipped)) {
                 this.squares[moveData.enPassantSquare - BOARD_SIZE] = isWhite(moveData.piece)
                     ? "p"
                     : "P";
@@ -346,13 +446,29 @@ export class Board {
         this.attacks[1] = this.getAllAttacks("black");
     }
 
-    public swapTimers() {
-        if ((this.whiteTurn && this.isWhite) || (!this.whiteTurn && !this.isWhite)) {
+    public async updateGame() {
+        if (this.getMoveApiCall === undefined)
+            throw new Error("Get move API call must be defined");
+
+        if ((this.whiteTurn && !this.boardFlipped) || (!this.whiteTurn && this.boardFlipped)) {
             this.friendlyTimer!.start();
             this.opponentTimer!.stop();
         } else {
             this.friendlyTimer!.stop();
             this.opponentTimer!.start();
+        }
+
+        this.drawPieces();
+
+        // Get engine move now if required
+        if (this.whiteTurn && this.whitePlayer !== "Local") {
+            const moveLan: string = await this.getMoveApiCall(!this.boardFlipped ? this.friendlyTimer!.getMs() : this.opponentTimer!.getMs());
+            await this.applyMoveLan(moveLan);
+            this.drawPieces();
+        } else if (!this.whiteTurn && this.blackPlayer !== "Local") {
+            const moveLan: string = await this.getMoveApiCall(!this.boardFlipped ? this.opponentTimer!.getMs() : this.friendlyTimer!.getMs());
+            await this.applyMoveLan(moveLan);
+            this.drawPieces();
         }
     }
 
@@ -377,11 +493,38 @@ export class Board {
     private startGame() {
         this.started = true;
         this.waitForStart = false;
-        if (this.isWhite) {
+        if (!this.boardFlipped) {
             this.friendlyTimer!.start();
         } else {
             this.opponentTimer!.start();
         }
+    }
+
+    private parseLAN(lan: string): [Square, Square, Piece | undefined] {
+        const fromCol: number = lan.charCodeAt(0);
+        const fromRow: number = lan.charCodeAt(1);
+        const toCol: number = lan.charCodeAt(2);
+        const toRow: number = lan.charCodeAt(3);
+        const promotion: Piece | undefined =
+            lan.length === 5 ? (lan.charAt(4) as Piece) : undefined;
+
+        var fromSquare: Square = new Square(
+            (fromCol - "a".charCodeAt(0)) as OctalDigit,
+            (7 - (fromRow - "1".charCodeAt(0))) as OctalDigit,
+        );
+        var toSquare: Square = new Square(
+            (toCol - "a".charCodeAt(0)) as OctalDigit,
+            (7 - (toRow - "1".charCodeAt(0))) as OctalDigit,
+        );
+
+        if (this.boardFlipped) {
+            fromSquare.x = (7 - fromSquare.x) as OctalDigit;
+            fromSquare.y = (7 - fromSquare.y) as OctalDigit;
+            toSquare.x = (7 - toSquare.x) as OctalDigit;
+            toSquare.y = (7 - toSquare.y) as OctalDigit;
+        }
+
+        return [fromSquare, toSquare, promotion];
     }
 
     private async loadSprites() {
@@ -432,19 +575,31 @@ export class Board {
         this.spriteCtx.filter = "none";
     }
 
-    private onPromote(_e: MouseEvent, piece: Piece) {
+    private async onPromote(_e: MouseEvent, piece: Piece) {
         const square: number = this.promotion!.to;
         this.squares[this.promotion!.to] = isWhite(this.squares[square]!)
             ? (piece.toUpperCase() as Piece)
             : (piece.toLowerCase() as Piece);
+
+        this.promotion!.setPromotion(piece);
+        await this.makeMoveApiCall!(this.promotion!.toLan());
+        this.updateAttacks();
+
         this.promotionMenu.style.display = "none";
         this.promotion = null;
-        this.drawPieces();
+        await this.updateGame();
     }
 
-    private onMouseDown(e: MouseEvent) {
+    private async onMouseDown(e: MouseEvent) {
         if (this.waitForStart) this.startGame();
         if (!this.started) return;
+        if (
+            (this.whiteTurn && this.whitePlayer !== "Local") ||
+            (!this.whiteTurn && this.blackPlayer !== "Local")
+        )
+            return;
+        if (this.makeMoveApiCall === undefined)
+            throw new Error("Make move API call must be defined");
 
         const targetSquare = new Square(
             Math.floor((e.offsetX / this.boardCanvas.clientWidth) * BOARD_SIZE) as OctalDigit,
@@ -467,13 +622,18 @@ export class Board {
                     .includes(targetSquare.asIndex())
             ) {
                 const moveData: MoveData = this.makeMove(this.selectedSquare, targetSquare);
-                if (moveData.isPromotion) this.promote(moveData);
-                this.updateAttacks();
-                this.swapTimers();
-
                 this.selectedSquare = null;
                 this.drawBoard();
                 this.drawPieces();
+
+                if (moveData.isPromotion) {
+                    this.promote(moveData);
+                    // API Call and other stuff handled in the callback (onPromote)
+                } else {
+                    await this.makeMoveApiCall(moveData.toLan());
+                    this.updateAttacks();
+                    await this.updateGame();
+                }
             } else {
                 this.selectedSquare = null;
                 this.drawBoard();
@@ -482,13 +642,19 @@ export class Board {
         }
     }
 
-    private onMouseUp(e: MouseEvent) {
+    private async onMouseUp(e: MouseEvent) {
         if (!this.started) return;
+        if (
+            (this.whiteTurn && this.whitePlayer !== "Local") ||
+            (!this.whiteTurn && this.blackPlayer !== "Local")
+        )
+            return;
+        if (this.makeMoveApiCall === undefined)
+            throw new Error("Make move API call must be defined");
 
         if (this.draggingPiece) {
-            if (this.selectedSquare === null) {
+            if (this.selectedSquare === null)
                 throw new Error("Expected selected square to be non-null during mouse up");
-            }
 
             const targetSquare = new Square(
                 Math.floor((e.offsetX / this.boardCanvas.clientWidth) * BOARD_SIZE) as OctalDigit,
@@ -502,20 +668,26 @@ export class Board {
             ) {
                 const moveData: MoveData = this.makeMove(this.selectedSquare, targetSquare);
                 if (moveData.isPromotion) this.promote(moveData);
-                this.swapTimers();
+                await this.makeMoveApiCall(moveData.toLan());
                 this.updateAttacks();
 
                 this.selectedSquare = null;
                 this.drawBoard();
+
+                await this.updateGame();
             }
         }
         this.hideSprite = -1;
         this.draggingPiece = false;
-        this.drawPieces();
     }
 
     private onMouseLeave(_e: MouseEvent) {
         if (!this.started) return;
+        if (
+            (this.whiteTurn && this.whitePlayer !== "Local") ||
+            (!this.whiteTurn && this.blackPlayer !== "Local")
+        )
+            return;
 
         this.draggingPiece = false;
         this.selectedSquare = null;
@@ -526,6 +698,11 @@ export class Board {
 
     private onMouseMove(e: MouseEvent) {
         if (!this.started) return;
+        if (
+            (this.whiteTurn && this.whitePlayer !== "Local") ||
+            (!this.whiteTurn && this.blackPlayer !== "Local")
+        )
+            return;
 
         if (this.draggingPiece) {
             if (this.selectedSquare === null) {
@@ -577,7 +754,7 @@ export class Board {
                 this.boardCtx.fillRect(x, y, width, height);
 
                 // Letter
-                const label: string = this.isWhite
+                const label: string = !this.boardFlipped
                     ? String.fromCharCode("A".charCodeAt(0) + c) + (BOARD_SIZE - r)
                     : String.fromCharCode("H".charCodeAt(0) - c) + (r + 1);
 
@@ -678,6 +855,10 @@ class CountdownTimer {
 
         this.isRunning = false;
         clearTimeout(this.timeout);
+    }
+
+    public getMs(): number {
+        return this.countMs;
     }
 
     private step() {

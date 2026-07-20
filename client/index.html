@@ -16,7 +16,7 @@
                 <div class="cards-container">
                     <div class="card">
                         <div class="card-name">
-                            <p>Opponent</p>
+                            <p id="opponent-label">Player 1</p>
                         </div>
                         <div class="card-timer">
                             <p><span id="opponent-timer">60:00</span></p>
@@ -24,7 +24,7 @@
                     </div>
                     <div class="card">
                         <div class="card-name">
-                            <p>You</p>
+                            <p id="friendly-label">Player 2</p>
                         </div>
                         <div class="card-timer">
                             <p><span id="friendly-timer">60:00</span></p>
@@ -36,18 +36,19 @@
                         <p>Game Setup</p>
                     </div>
                     <form id="setup-game-form" onsubmit="return false;">
-                        <div class="play-as-container">
-                            <label>Play as</label>
-                            <div class="play-as">
-                                <input type="radio" value="white" name="play-as" class="white-button" checked="checked">
-                                <input type="radio" value="black" name="play-as" class="black-button">
+                        <div class="play-against-container">
+                            <label>White Player</label>
+                            <div class="play-against">
+                                <select id="white-player" name="white-player" value="white-player">
+                                    <option value="Local">Local</option>
+                                </select>
                             </div>
                         </div>
                         <div class="play-against-container">
-                            <label>Play against</label>
+                            <label>Black Player</label>
                             <div class="play-against">
-                                <select name="play-against" value="play-against">
-                                    <option value="local">Local Opponent</option>
+                                <select id="black-player" name="black-player" value="black-player">
+                                    <option value="Local">Local</option>
                                 </select>
                             </div>
                         </div>

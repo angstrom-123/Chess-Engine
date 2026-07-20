@@ -117,7 +117,7 @@ div p {
     box-sizing: border-box;
     border-radius: 3px;
     border: solid var(--mid-gray);
-    font-size: 400%;
+    font-size: 32pt;
     color: var(--white);
     align-items: center;
     justify-content: center;
