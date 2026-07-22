@@ -40,11 +40,9 @@ Move Searcher::FindBest(const BoardState& state, uint64_t msRemaining)
 
         AttackMoveBuffer attackMoves;
         movegen::FindAttacks(std::forward<const BoardState>(state), m_AttackTable, attackMoves);
-        std::cout << "Found " << attackMoves.Size() << " attacks" << std::endl;
 
         QuietMoveBuffer quietMoves;
         movegen::FindQuiets(std::forward<const BoardState>(state), m_AttackTable, quietMoves);
-        std::cout << "Found " << quietMoves.Size() << " quiets" << std::endl;
 
         CombinedMoveBuffer moves;
         OrderMoves(bestMove, attackMoves, quietMoves, moves);
@@ -106,7 +104,7 @@ Move Searcher::FindBest(const BoardState& state, uint64_t msRemaining)
         }
 
         // Show principal variation at this depth
-        std::cout << std::endl << "Principal Variation (depth=" << static_cast<int>(depth) << "): ";
+        std::cout << "Principal Variation (depth=" << static_cast<int>(depth) << "): ";
         for (const auto move : principalVariation)
             std::cout << move.ToLAN().chars << ", ";
         std::cout << std::endl;

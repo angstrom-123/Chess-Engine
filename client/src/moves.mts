@@ -263,7 +263,10 @@ function getKingMoves(board: Board, square: number): number[] {
     const enemyAttacks: boolean[] = board.getAllAttacks(isWhite(piece) ? "black" : "white");
 
     if (!board.boardFlipped) {
-        if ((isWhite(piece) && board.whiteCanCastleLong) || (!isWhite(piece) && board.blackCanCastleLong)) {
+        if (
+            (isWhite(piece) && board.whiteCanCastleLong) ||
+            (!isWhite(piece) && board.blackCanCastleLong)
+        ) {
             if (
                 board.squares[square - 1] === " " &&
                 board.squares[square - 2] === " " &&
@@ -275,7 +278,10 @@ function getKingMoves(board: Board, square: number): number[] {
             }
         }
 
-        if ((isWhite(piece) && board.whiteCanCastleShort) || (!isWhite(piece) && board.blackCanCastleLong)) {
+        if (
+            (isWhite(piece) && board.whiteCanCastleShort) ||
+            (!isWhite(piece) && board.blackCanCastleLong)
+        ) {
             if (
                 board.squares[square + 1] === " " &&
                 board.squares[square + 2] === " " &&
@@ -287,7 +293,10 @@ function getKingMoves(board: Board, square: number): number[] {
             }
         }
     } else {
-        if ((isWhite(piece) && board.whiteCanCastleLong) || (!isWhite(piece) && board.blackCanCastleLong)) {
+        if (
+            (isWhite(piece) && board.whiteCanCastleLong) ||
+            (!isWhite(piece) && board.blackCanCastleLong)
+        ) {
             if (
                 board.squares[square + 1] === " " &&
                 board.squares[square + 2] === " " &&
@@ -299,7 +308,10 @@ function getKingMoves(board: Board, square: number): number[] {
             }
         }
 
-        if ((isWhite(piece) && board.whiteCanCastleShort) || (!isWhite(piece) && board.blackCanCastleLong)) {
+        if (
+            (isWhite(piece) && board.whiteCanCastleShort) ||
+            (!isWhite(piece) && board.blackCanCastleLong)
+        ) {
             if (
                 board.squares[square - 1] === " " &&
                 board.squares[square - 2] === " " &&

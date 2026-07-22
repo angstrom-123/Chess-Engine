@@ -390,8 +390,6 @@ export class Board {
         return moveData;
     }
 
-    // TODO: Board flip has changed things a bit, need to fix castling for sure, check en passant!
-
     public unmakeMove(moveData: MoveData) {
         // En Passant
         const piece: Piece = moveData.piece;

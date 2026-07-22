@@ -5,13 +5,12 @@ from typing import ClassVar, Literal
 from fastapi import FastAPI, Request, Response, status
 from pydantic import BaseModel, ConfigDict
 
-from server.engine  import BaseEngine
-from server.jupiter import Jupiter
+from server.engine import BaseEngine
+from server.players import engines
 
 # ==================== App Definitions ==================== 
 
 Color = Literal["white", "black"]
-EngineList = list[type[BaseEngine]]
 
 class State(BaseModel):
     model_config: ClassVar[ConfigDict] =ConfigDict(arbitrary_types_allowed=True)
@@ -23,9 +22,6 @@ class State(BaseModel):
 # ==================== App Data ==================== 
 
 state: State = State() 
-engines: EngineList = [
-    Jupiter,
-]
 
 # ==================== Request / Reponse Body Structures ==================== 
 

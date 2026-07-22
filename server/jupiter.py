@@ -1,6 +1,8 @@
-from server.engine import BaseEngine
-from libchess import Board
 from typing_extensions import override
+
+from server.engine import BaseEngine
+
+from libchess import Board
 
 class Jupiter(BaseEngine):
     name: str = "Jupiter"

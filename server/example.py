@@ -20,11 +20,11 @@ if board.has_error():
 
 # ========== Search for best move ==========
 
-# Time limit currently unimplemented, for reference only
-time_limit_ms: int = 1000
+# 10 seconds left
+time_remaining_ms: int = 10000
 
 # Long algebraic notation (e.g. e2e4)
-best_move: str = board.go(time_limit_ms)
+best_move: str = board.go(time_remaining_ms)
 print(f"Best Move: {best_move}")
 
 # ========== Update Board State ==========
