@@ -17,6 +17,7 @@ public:
     static int64_t Evaluate(const BoardState& state);
 
 private:
-    static int64_t EvaluateMaterialBalance(const BoardState& state);
+    static int64_t MaterialBalance(const BoardState& state);
+    static int64_t CastlingRightIncentive(const BoardState& state);
     static SEE::Value EvaluateStaticExchange(uint8_t index, const BoardState& state);
 };

@@ -248,61 +248,117 @@ function getKingMoves(board: Board, square: number): number[] {
     }
 
     // Castling
+    // Normal
+    // | 0  |  1 |  2 |  3 |  4 |  5 |  6 |  7 |
+    //
     // | 56 | 57 | 58 | 59 | 60 | 61 | 62 | 63 |
     //   R         ^^        K         ^^   R
-
-    // If playing white, then white is at bottom, 56-63@60
-    // If playing black, then white is at top, 0-7@4
+    //
+    // Flipped
+    // | 0  |  1 |  2 |  3 |  4 |  5 |  6 |  7 |
+    //
+    // | 56 | 57 | 58 | 59 | 60 | 61 | 62 | 63 |
+    //   R    ^^        K         ^^        R
 
     const enemyAttacks: boolean[] = board.getAllAttacks(isWhite(piece) ? "black" : "white");
 
-    if (isWhite(piece)) {
-        const king: number = !board.boardFlipped ? 60 : 4;
-        if (
-            board.whiteCanCastleLong &&
-            board.squares[king - 1] === " " &&
-            board.squares[king - 2] === " " &&
-            !enemyAttacks[king] &&
-            !enemyAttacks[king - 1] &&
-            !enemyAttacks[king - 2]
-        ) {
-            moves.push(king - 2);
+    if (!board.boardFlipped) {
+        if ((isWhite(piece) && board.whiteCanCastleLong) || (!isWhite(piece) && board.blackCanCastleLong)) {
+            if (
+                board.squares[square - 1] === " " &&
+                board.squares[square - 2] === " " &&
+                !enemyAttacks[square] &&
+                !enemyAttacks[square - 1] &&
+                !enemyAttacks[square - 2]
+            ) {
+                moves.push(square - 2);
+            }
         }
 
-        if (
-            board.whiteCanCastleShort &&
-            board.squares[king + 1] === " " &&
-            board.squares[king + 2] === " " &&
-            !enemyAttacks[king] &&
-            !enemyAttacks[king + 1] &&
-            !enemyAttacks[king + 2]
-        ) {
-            moves.push(king + 2);
+        if ((isWhite(piece) && board.whiteCanCastleShort) || (!isWhite(piece) && board.blackCanCastleLong)) {
+            if (
+                board.squares[square + 1] === " " &&
+                board.squares[square + 2] === " " &&
+                !enemyAttacks[square] &&
+                !enemyAttacks[square + 1] &&
+                !enemyAttacks[square + 2]
+            ) {
+                moves.push(square + 2);
+            }
         }
     } else {
-        const king: number = !board.boardFlipped ? 4 : 60;
-        if (
-            board.blackCanCastleLong &&
-            board.squares[king - 1] === " " &&
-            board.squares[king - 2] === " " &&
-            !enemyAttacks[king] &&
-            !enemyAttacks[king - 1] &&
-            !enemyAttacks[king - 2]
-        ) {
-            moves.push(king - 2);
+        if ((isWhite(piece) && board.whiteCanCastleLong) || (!isWhite(piece) && board.blackCanCastleLong)) {
+            if (
+                board.squares[square + 1] === " " &&
+                board.squares[square + 2] === " " &&
+                !enemyAttacks[square] &&
+                !enemyAttacks[square + 1] &&
+                !enemyAttacks[square + 2]
+            ) {
+                moves.push(square + 2);
+            }
         }
 
-        if (
-            board.blackCanCastleShort &&
-            board.squares[king + 1] === " " &&
-            board.squares[king + 2] === " " &&
-            !enemyAttacks[king] &&
-            !enemyAttacks[king + 1] &&
-            !enemyAttacks[king + 2]
-        ) {
-            moves.push(king + 2);
+        if ((isWhite(piece) && board.whiteCanCastleShort) || (!isWhite(piece) && board.blackCanCastleLong)) {
+            if (
+                board.squares[square - 1] === " " &&
+                board.squares[square - 2] === " " &&
+                !enemyAttacks[square] &&
+                !enemyAttacks[square - 1] &&
+                !enemyAttacks[square - 2]
+            ) {
+                moves.push(square - 2);
+            }
         }
     }
+
+    // if (isWhite(piece)) {
+    //     const king: number = !board.boardFlipped ? 60 : 3;
+    //     if (
+    //         board.whiteCanCastleLong &&
+    //         board.squares[king - 1] === " " &&
+    //         board.squares[king - 2] === " " &&
+    //         !enemyAttacks[king] &&
+    //         !enemyAttacks[king - 1] &&
+    //         !enemyAttacks[king - 2]
+    //     ) {
+    //         moves.push(king - 2);
+    //     }
+    //
+    //     if (
+    //         board.whiteCanCastleShort &&
+    //         board.squares[king + 1] === " " &&
+    //         board.squares[king + 2] === " " &&
+    //         !enemyAttacks[king] &&
+    //         !enemyAttacks[king + 1] &&
+    //         !enemyAttacks[king + 2]
+    //     ) {
+    //         moves.push(king + 2);
+    //     }
+    // } else {
+    //     const king: number = !board.boardFlipped ? 4 : 59;
+    //     if (
+    //         board.blackCanCastleLong &&
+    //         board.squares[king - 1] === " " &&
+    //         board.squares[king - 2] === " " &&
+    //         !enemyAttacks[king] &&
+    //         !enemyAttacks[king - 1] &&
+    //         !enemyAttacks[king - 2]
+    //     ) {
+    //         moves.push(king - 2);
+    //     }
+    //
+    //     if (
+    //         board.blackCanCastleShort &&
+    //         board.squares[king + 1] === " " &&
+    //         board.squares[king + 2] === " " &&
+    //         !enemyAttacks[king] &&
+    //         !enemyAttacks[king + 1] &&
+    //         !enemyAttacks[king + 2]
+    //     ) {
+    //         moves.push(king + 2);
+    //     }
+    // }
 
     return moves;
 }

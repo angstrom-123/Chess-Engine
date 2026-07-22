@@ -83,6 +83,8 @@ async def engine_list(_request: Request):
 async def best_move(request: Request):
     info: FindMoveInfo = FindMoveInfo.model_validate_json(await request.body())
 
+    print(f"Ms left: {info.ms_left}")
+
     move: str
     if state.turn == "white":
         if state.white_engine is None:

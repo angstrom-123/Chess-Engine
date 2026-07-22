@@ -4,106 +4,120 @@
 #include "movegen.h"
 
 #include <chrono>
+#include <cmath>
 #include <cstdint>
 #include <ctime>
 #include <immintrin.h>
-#include <iomanip>
 #include <iostream>
-#include <stdexcept>
 
-const uint8_t DEPTH = 7;
-const uint8_t MAX_QUIESCENCE_PLY = 6;
+namespace chrono = std::chrono;
 
-Move Searcher::FindBest(const BoardState& state, uint64_t ms)
+Move Searcher::FindBest(const BoardState& state, uint64_t msRemaining)
 {
-    // TODO: Track time
-    auto startPoint = std::chrono::high_resolution_clock::now();
+    auto startPoint = chrono::high_resolution_clock::now();
+    uint64_t startMs = chrono::time_point_cast<chrono::milliseconds>(startPoint).time_since_epoch().count();
+
+    uint64_t targetTimeMs = msRemaining / std::max(10ul, static_cast<uint64_t>(50 - std::floor(state.halfMoves / 2)));
+    uint64_t targetMs = startMs + targetTimeMs;
 
     BoardState workingState(state);
 
     m_NodesSearched = 0;
     m_NodesEvaluated = 0;
+    m_SearchAborted = false;
 
-    AttackMoveBuffer attackMoves;
-    movegen::FindAttacks(std::forward<const BoardState>(state), m_AttackTable, attackMoves);
-    std::cout << "Found " << attackMoves.Size() << " attacks" << std::endl;
-
-    const uint8_t depth = DEPTH;
-    LineBuffer principalVariation(depth);
-    LineBuffer localLine(depth);
-
+    // Iterative deepening
     Move bestMove = Move::Invalid();
-    int64_t bestScore = -INT64_MAX;
-    int64_t alpha = -INT64_MAX;
-    int64_t beta = INT64_MAX;
+    uint8_t depth = 0;
+    while (++depth) {
+        // Only check termination condition every 2048 nodes to save expensive clock calls
+        if (m_NodesSearched & 2048) {
+            auto nowPoint = chrono::high_resolution_clock::now();
+            uint64_t nowMs = chrono::time_point_cast<chrono::milliseconds>(nowPoint).time_since_epoch().count();
+            if (nowMs >= targetMs)
+                break;
+        }
 
-    for (Move move : attackMoves) {
-        m_NodesSearched++;
-        MoveData moveData = MakeMove(move, workingState);
-        if (!WasLegal(moveData, workingState)) {
+        AttackMoveBuffer attackMoves;
+        movegen::FindAttacks(std::forward<const BoardState>(state), m_AttackTable, attackMoves);
+        std::cout << "Found " << attackMoves.Size() << " attacks" << std::endl;
+
+        QuietMoveBuffer quietMoves;
+        movegen::FindQuiets(std::forward<const BoardState>(state), m_AttackTable, quietMoves);
+        std::cout << "Found " << quietMoves.Size() << " quiets" << std::endl;
+
+        CombinedMoveBuffer moves;
+        OrderMoves(bestMove, attackMoves, quietMoves, moves);
+
+        LineBuffer principalVariation(depth);
+        LineBuffer localLine(depth);
+
+        Move depthBestMove = Move::Invalid();
+        int64_t bestScore = -INT64_MAX;
+        int64_t alpha = -INT64_MAX;
+        int64_t beta = INT64_MAX;
+
+        for (Move move : moves) {
+            m_NodesSearched++;
+            MoveData moveData = MakeMove(move, workingState);
+            if (!WasLegal(moveData, workingState)) {
+                UnmakeMove(moveData, workingState);
+                continue;
+            }
+            m_NodesEvaluated++;
+
+            localLine.Resize(0);
+            int64_t score = -Search((SearchInfo) {
+                .state = workingState, 
+                .alpha = -beta, 
+                .beta = -alpha, 
+                .depth = static_cast<uint8_t>(depth - 1), 
+                .ply = 1,
+                .pv = localLine,
+                .targetMs = targetMs
+            });
             UnmakeMove(moveData, workingState);
-            continue;
+
+            // Ran out of time
+            if (m_SearchAborted)
+                break;
+
+            if (score > bestScore) {
+                bestScore = score;
+                depthBestMove = move;
+                if (score > alpha)
+                    alpha = score;
+
+                principalVariation[0] = move;
+                for (uint8_t i = 0; i < localLine.Size(); i++)
+                    principalVariation[i + 1] = localLine[i];
+                principalVariation.Resize(localLine.Size() + 1);
+            }
         }
-        m_NodesEvaluated++;
 
-        localLine.Resize(0);
-        int64_t score = -Search(workingState, -beta, -alpha, depth - 1, 1, localLine);
-        UnmakeMove(moveData, workingState);
+        // Ran out of time - Incomplete search so don't save result
+        if (m_SearchAborted)
+            break;
 
-        if (score > bestScore) {
-            bestScore = score;
-            bestMove = move;
-            if (score > alpha)
-                alpha = score;
-
-            principalVariation[0] = move;
-            for (uint8_t i = 0; i < localLine.Size(); i++)
-                principalVariation[i + 1] = localLine[i];
-            principalVariation.Resize(localLine.Size() + 1);
+        // Checkmate or stalemate
+        if (!Move::IsValid(depthBestMove)) {
+            std::cout << "Couldn't find a valid move" << std::endl;
+            break;
         }
+
+        // Show principal variation at this depth
+        std::cout << std::endl << "Principal Variation (depth=" << static_cast<int>(depth) << "): ";
+        for (const auto move : principalVariation)
+            std::cout << move.ToLAN().chars << ", ";
+        std::cout << std::endl;
+
+        bestMove = depthBestMove;
     }
 
-    QuietMoveBuffer quietMoves;
-    movegen::FindQuiets(std::forward<const BoardState>(state), m_AttackTable, quietMoves);
-    std::cout << "Found " << quietMoves.Size() << " quiets" << std::endl;
-    for (Move move : quietMoves) {
-        m_NodesSearched++;
-        MoveData moveData = MakeMove(move, workingState);
-        if (!WasLegal(moveData, workingState)) {
-            UnmakeMove(moveData, workingState);
-            continue;
-        }
-        m_NodesEvaluated++;
-
-        localLine.Resize(0);
-        int64_t score = -Search(workingState, -beta, -alpha, depth - 1, 1, localLine);
-        UnmakeMove(moveData, workingState);
-
-        if (score > bestScore) {
-            bestScore = score;
-            bestMove = move;
-            if (score > alpha)
-                alpha = score;
-
-            principalVariation[0] = move;
-            for (uint8_t i = 0; i < localLine.Size(); i++)
-                principalVariation[i + 1] = localLine[i];
-            principalVariation.Resize(localLine.Size() + 1);
-        }
-    }
-
-    if (!Move::IsValid(bestMove))
-        std::cout << "Couldn't find a valid move" << std::endl;
-
-    std::cout << std::endl << "Principal Variation: ";
-    for (const auto move : principalVariation)
-        std::cout << move.ToLAN().chars << ", ";
-    std::cout << std::endl;
+    // TODO: Optimisation from iterative deepening?
     
-    auto endPoint = std::chrono::high_resolution_clock::now();
-
-    uint64_t startMs = std::chrono::time_point_cast<std::chrono::milliseconds>(startPoint).time_since_epoch().count();
-    uint64_t endMs = std::chrono::time_point_cast<std::chrono::milliseconds>(endPoint).time_since_epoch().count();
+    auto endPoint = chrono::high_resolution_clock::now();
+    uint64_t endMs = chrono::time_point_cast<chrono::milliseconds>(endPoint).time_since_epoch().count();
 
     uint64_t msTaken = endMs - startMs;
     float mnpsSearch = static_cast<float>(m_NodesSearched) / static_cast<float>(msTaken) / 1000.0;
@@ -115,83 +129,75 @@ Move Searcher::FindBest(const BoardState& state, uint64_t ms)
     return bestMove;
 }
 
-int64_t Searcher::Search(BoardState& state, int64_t alpha, int64_t beta, uint8_t depth, uint8_t ply, LineBuffer& pv)
+int64_t Searcher::Search(SearchInfo&& info)
 {
-    pv.Resize(0);
-
-    if (depth == 0) 
-        return Quiesce(state, alpha, beta, 0);
-
-    int64_t max = -INT64_MAX;
-    LineBuffer localLine(depth);
-
-    AttackMoveBuffer attackMoves;
-    movegen::FindAttacks(std::forward<const BoardState>(state), m_AttackTable, attackMoves);
-    for (Move move : attackMoves) {
-        m_NodesSearched++;
-        MoveData moveData = MakeMove(move, state);
-        if (!WasLegal(moveData, state)) {
-            UnmakeMove(moveData, state);
-            continue;
+    // Only check termination condition every 2048 nodes to save expensive clock calls
+    if (m_NodesSearched & 2048) {
+        auto nowPoint = chrono::high_resolution_clock::now();
+        uint64_t nowMs = chrono::time_point_cast<chrono::milliseconds>(nowPoint).time_since_epoch().count();
+        if (nowMs >= info.targetMs) {
+            m_SearchAborted = true;
+            return 0;
         }
-        m_NodesEvaluated++;
-
-        localLine.Resize(0);
-        int64_t score = -Search(state, -beta, -alpha, depth - 1, ply + 1, localLine);
-        UnmakeMove(moveData, state);
-
-        if (score > max) {
-            max = score;
-            if (score > alpha) {
-                alpha = score;
-
-                pv[0] = move;
-                for (uint8_t i = 0; i < localLine.Size(); i++)
-                    pv[i + 1] = localLine[i];
-                pv.Resize(localLine.Size() + 1);
-            }
-        }
-
-        if (score >= beta)
-            return max;
     }
 
+    info.pv.Resize(0);
+
+    if (info.depth == 0) 
+        return Quiesce((QuiesceInfo) {
+            .state = info.state, 
+            .alpha = info.alpha, 
+            .beta = info.beta, 
+            .ply = 0,
+            .targetMs = info.targetMs
+        });
+
+    int64_t max = -INT64_MAX;
+    LineBuffer localLine(info.depth);
+
+    AttackMoveBuffer attackMoves;
+    movegen::FindAttacks(std::forward<const BoardState>(info.state), m_AttackTable, attackMoves);
+
     QuietMoveBuffer quietMoves;
-    movegen::FindQuiets(std::forward<const BoardState>(state), m_AttackTable, quietMoves);
-    for (Move move : quietMoves) {
+    movegen::FindQuiets(std::forward<const BoardState>(info.state), m_AttackTable, quietMoves);
+
+    CombinedMoveBuffer moves;
+    OrderMoves(Move::Invalid(), attackMoves, quietMoves, moves);
+
+    for (Move move : moves) {
         m_NodesSearched++;
-        MoveData moveData = MakeMove(move, state);
-        if (!WasLegal(moveData, state)) {
-            UnmakeMove(moveData, state);
+        MoveData moveData = MakeMove(move, info.state);
+        if (!WasLegal(moveData, info.state)) {
+            UnmakeMove(moveData, info.state);
             continue;
         }
         m_NodesEvaluated++;
 
         localLine.Resize(0);
-        int64_t score = -Search(state, -beta, -alpha, depth - 1, ply + 1, localLine);
-        UnmakeMove(moveData, state);
+        int64_t score = -Search(SearchInfo::Next(std::forward<SearchInfo&&>(info), localLine));
+        UnmakeMove(moveData, info.state);
 
         if (score > max) {
             max = score;
-            if (score > alpha) {
-                alpha = score;
+            if (score > info.alpha) {
+                info.alpha = score;
 
-                pv[0] = move;
+                info.pv[0] = move;
                 for (uint8_t i = 0; i < localLine.Size(); i++)
-                    pv[i + 1] = localLine[i];
-                pv.Resize(localLine.Size() + 1);
+                    info.pv[i + 1] = localLine[i];
+                info.pv.Resize(localLine.Size() + 1);
             }
         }
 
-        if (score >= beta)
+        if (score >= info.beta)
             return max;
     }
 
     if (max == -INT64_MAX) {
         // Checkmate
-        Bitboard king = state.pieces.OccupancyMask(state.turn, Piece::KING);
-        if (SquareUnderAttack(king, Color::Opposite(state.turn), state)) 
-            return -MATE_EVAL + ply;
+        Bitboard king = info.state.pieces.OccupancyMask(info.state.turn, Piece::KING);
+        if (SquareUnderAttack(king, Color::Opposite(info.state.turn), info.state)) 
+            return -MATE_EVAL + info.ply;
 
         // Stalemate
         return 0;
@@ -199,42 +205,50 @@ int64_t Searcher::Search(BoardState& state, int64_t alpha, int64_t beta, uint8_t
     return max;
 }
 
-int64_t Searcher::Quiesce(BoardState& state, int64_t alpha, int64_t beta, uint8_t ply)
+int64_t Searcher::Quiesce(QuiesceInfo&& info)
 {
-    int64_t staticEval = Evaluator::Evaluate(state);
-    if (ply == MAX_QUIESCENCE_PLY)
-        return staticEval;
+    // Only check termination condition every 2048 nodes to save expensive clock calls
+    if (m_NodesSearched & 2048) {
+        auto nowPoint = chrono::high_resolution_clock::now();
+        uint64_t nowMs = chrono::time_point_cast<chrono::milliseconds>(nowPoint).time_since_epoch().count();
+        if (nowMs >= info.targetMs) {
+            m_SearchAborted = true;
+            return 0;
+        }
+    }
+
+    int64_t staticEval = Evaluator::Evaluate(info.state);
 
     // Stand Pat
     int64_t max = staticEval;
-    if (max >= beta)
+    if (max >= info.beta)
         return max;
-    if (max > alpha)
-        alpha = max;
+    if (max > info.alpha)
+        info.alpha = max;
 
     AttackMoveBuffer attackMoves;
-    movegen::FindAttacks(state, m_AttackTable, attackMoves);
+    movegen::FindAttacks(info.state, m_AttackTable, attackMoves);
     for (Move move : attackMoves) {
         m_NodesSearched++;
         m_NodesQuiesced++;
-        MoveData moveData = MakeMove(move, state);
-        if (!WasLegal(moveData, state)) {
-            UnmakeMove(moveData, state);
+        MoveData moveData = MakeMove(move, info.state);
+        if (!WasLegal(moveData, info.state)) {
+            UnmakeMove(moveData, info.state);
             continue;
         }
         m_NodesEvaluated++;
 
-        int64_t score = -Quiesce(state, -beta, -alpha, ply + 1);
-        UnmakeMove(moveData, state);
+        int64_t score = -Quiesce(QuiesceInfo::Next(std::forward<QuiesceInfo&&>(info)));
+        UnmakeMove(moveData, info.state);
 
-        if (score >= beta)
+        if (score >= info.beta)
             return score;
 
         if (score > max)
             max = score;
 
-        if (score > alpha)
-            alpha = score;
+        if (score > info.alpha)
+            info.alpha = score;
     }
 
     return max;
@@ -426,3 +440,19 @@ bool Searcher::WasLegal(MoveData moveData, const BoardState& state)
     return !targetAttacked;
 }
 
+// TODO: Improve this
+void Searcher::OrderMoves(Move bestMove, const AttackMoveBuffer& attacks, const QuietMoveBuffer& quiets, CombinedMoveBuffer& ordered)
+{
+    if (Move::IsValid(bestMove))
+        ordered.PushBack(bestMove);
+
+    for (const Move move : attacks) {
+        if (move != bestMove)
+            ordered.PushBack(move);
+    }
+
+    for (const Move move : quiets) {
+        if (move != bestMove)
+            ordered.PushBack(move);
+    }
+}

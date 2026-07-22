@@ -6,11 +6,13 @@
 #include "move.h"
 #include <cstdint>
 
-const uint64_t MAX_POSSIBLE_QUIETS = 240; // Should be enough, includes pseudolegal
-const uint64_t MAX_POSSIBLE_ATTACKS = 112; // Upper bound, includes pseudolegal
+// Not quite the theoretical maximums but I don't anticipate this becoming a problem
+const uint64_t MAX_POSSIBLE_QUIETS = 100;
+const uint64_t MAX_POSSIBLE_ATTACKS = 100;
 
 using QuietMoveBuffer = Buffer<Move, MAX_POSSIBLE_QUIETS>;
 using AttackMoveBuffer = Buffer<Move, MAX_POSSIBLE_ATTACKS>;
+using CombinedMoveBuffer = Buffer<Move, MAX_POSSIBLE_QUIETS + MAX_POSSIBLE_ATTACKS>;
 
 namespace movegen {
     void FindAttacks(const BoardState& state, const AttackTable& table, AttackMoveBuffer& attackBuffer);

@@ -22,8 +22,10 @@ struct Move {
     Piece::Value piece{Piece::Invalid()};
     Piece::Value promote{Piece::Invalid()};
 
+    LongAlgebraicMove ToLAN() const;
+    bool operator==(const Move& other) const = default;
+
     static bool IsValid(Move move) { return Piece::IsValid(move.piece); }
     static Move Invalid() { return Move(); }
-    LongAlgebraicMove ToLAN() const;
     static Move FromLAN(LongAlgebraicMove lan, const BitboardSet& piecePositions);
 };

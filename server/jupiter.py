@@ -22,6 +22,7 @@ class Jupiter(BaseEngine):
 
     @override
     def move(self, move: str) -> None:
+        print(self.board.__repr__())
         if self.board is not None:
             self.board.make_move(move)
         else:

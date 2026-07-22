@@ -76,15 +76,17 @@ async function main() {
 
         console.log(whitePlayer, blackPlayer);
 
-        var flipBoard: boolean = false;
-        if (whitePlayer === "Local") {
-            friendlyLabel.innerText = whitePlayer;
-            opponentLabel.innerText = blackPlayer;
-        } else if (blackPlayer === "Local") {
-            friendlyLabel.innerText = blackPlayer;
-            opponentLabel.innerText = whitePlayer;
-            flipBoard = true;
-        }
+        const flipBoard = true;
+        // TODO: UNCOMMENT
+        // var flipBoard: boolean = false;
+        // if (whitePlayer === "Local" || blackPlayer !== "Local") {
+        //     friendlyLabel.innerText = whitePlayer;
+        //     opponentLabel.innerText = blackPlayer;
+        // } else {
+        //     friendlyLabel.innerText = blackPlayer;
+        //     opponentLabel.innerText = whitePlayer;
+        //     flipBoard = true;
+        // }
 
         await retryApiCall({
             endpoint: "/game-start/",

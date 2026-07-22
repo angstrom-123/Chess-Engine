@@ -98,8 +98,7 @@ export class MoveData {
         const toRowChar: string = String.fromCharCode("1".charCodeAt(0) + toRow);
 
         var lan: string = fromColChar + fromRowChar + toColChar + toRowChar;
-        if (this.isPromotion)
-            lan += this.promotedTo;
+        if (this.isPromotion) lan += this.promotedTo;
 
         return lan;
     }
@@ -255,7 +254,7 @@ export class Board {
                 const sourceY = BOARD_SIZE - y - 1;
 
                 for (let x = 0; x < BOARD_SIZE; x++) {
-                    newSquares[y * 8 + x] = this.squares[sourceY * 8 + x]!;
+                    newSquares[y * 8 + (7 - x)] = this.squares[sourceY * 8 + x]!;
                 }
             }
 
@@ -339,12 +338,12 @@ export class Board {
         if ((piece === "k" || piece === "K") && Math.abs(fromIndex - toIndex) === 2) {
             if (fromIndex > toIndex) {
                 // Castle long
-                const rookIndex = fromIndex - 4;
+                const rookIndex = fromIndex - (this.boardFlipped ? 3 : 4);
                 this.squares[toIndex + 1] = this.squares[rookIndex]!;
                 this.squares[rookIndex] = " ";
             } else {
                 // Castle short
-                const rookIndex = fromIndex + 3;
+                const rookIndex = fromIndex + (this.boardFlipped ? 4 : 3);
                 this.squares[toIndex - 1] = this.squares[rookIndex]!;
                 this.squares[rookIndex] = " ";
             }
@@ -391,6 +390,8 @@ export class Board {
         return moveData;
     }
 
+    // TODO: Board flip has changed things a bit, need to fix castling for sure, check en passant!
+
     public unmakeMove(moveData: MoveData) {
         // En Passant
         const piece: Piece = moveData.piece;
@@ -414,12 +415,10 @@ export class Board {
         // Castling
         if ((piece === "k" || piece === "K") && Math.abs(fromIndex - toIndex) === 2) {
             if (fromIndex > toIndex) {
-                // Castle long
-                this.squares[fromIndex - 4] = isWhite(piece) ? "R" : "r";
+                this.squares[fromIndex - (this.boardFlipped ? 3 : 4)] = isWhite(piece) ? "R" : "r";
                 this.squares[fromIndex - 1] = " ";
             } else {
-                // Castle short
-                this.squares[fromIndex + 3] = isWhite(piece) ? "R" : "r";
+                this.squares[fromIndex + (this.boardFlipped ? 4 : 3)] = isWhite(piece) ? "R" : "r";
                 this.squares[fromIndex + 1] = " ";
             }
         }
@@ -447,8 +446,7 @@ export class Board {
     }
 
     public async updateGame() {
-        if (this.getMoveApiCall === undefined)
-            throw new Error("Get move API call must be defined");
+        if (this.getMoveApiCall === undefined) throw new Error("Get move API call must be defined");
 
         if ((this.whiteTurn && !this.boardFlipped) || (!this.whiteTurn && this.boardFlipped)) {
             this.friendlyTimer!.start();
@@ -462,11 +460,15 @@ export class Board {
 
         // Get engine move now if required
         if (this.whiteTurn && this.whitePlayer !== "Local") {
-            const moveLan: string = await this.getMoveApiCall(!this.boardFlipped ? this.friendlyTimer!.getMs() : this.opponentTimer!.getMs());
+            const moveLan: string = await this.getMoveApiCall(
+                !this.boardFlipped ? this.friendlyTimer!.getMs() : this.opponentTimer!.getMs(),
+            );
             await this.applyMoveLan(moveLan);
             this.drawPieces();
         } else if (!this.whiteTurn && this.blackPlayer !== "Local") {
-            const moveLan: string = await this.getMoveApiCall(!this.boardFlipped ? this.opponentTimer!.getMs() : this.friendlyTimer!.getMs());
+            const moveLan: string = await this.getMoveApiCall(
+                !this.boardFlipped ? this.opponentTimer!.getMs() : this.friendlyTimer!.getMs(),
+            );
             await this.applyMoveLan(moveLan);
             this.drawPieces();
         }
@@ -679,6 +681,7 @@ export class Board {
         }
         this.hideSprite = -1;
         this.draggingPiece = false;
+        this.drawPieces();
     }
 
     private onMouseLeave(_e: MouseEvent) {
