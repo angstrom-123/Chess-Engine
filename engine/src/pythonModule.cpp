@@ -50,7 +50,7 @@ namespace py {
         self->board->Show(result);
         return PyUnicode_FromString(result.c_str());
     }
-    
+
     static PyObject *BoardHasError(Board *self, PyObject *args)
     {
         if (!self->board)
@@ -72,7 +72,7 @@ namespace py {
     {
         if (!self->board)
             return nullptr;
-        uint64_t ms = 1000;
+        uint64_t ms;
         if (!PyArg_ParseTuple(args, "K", &ms))
             return nullptr;
         Move move = self->board->Go(ms);
@@ -94,6 +94,19 @@ namespace py {
         Py_RETURN_NONE;
     }
 
+    static PyObject *BoardSetTimeControl(Board *self, PyObject *args)
+    {
+        if (!self->board)
+            return nullptr;
+        uint64_t seconds;
+        uint64_t increment;
+        if (!PyArg_ParseTuple(args, "KK", &seconds, &increment))
+            return nullptr;
+
+        self->board->SetTimeControl(seconds, increment);
+        Py_RETURN_NONE;
+    }
+
     // Board Method Table
 
     static PyMethodDef boardMethods[] = {
@@ -101,6 +114,7 @@ namespace py {
         { "get_error", reinterpret_cast<PyCFunction>(py::BoardGetError), METH_NOARGS, "Gets the current error if there is one." },
         { "go", reinterpret_cast<PyCFunction>(py::BoardGo), METH_VARARGS, "Find the best move on the current board within the given time." },
         { "make_move", reinterpret_cast<PyCFunction>(py::BoardMakeMove), METH_VARARGS, "Apply a move in Long Algebraic Notation to update game state." },
+        { "set_time_control", reinterpret_cast<PyCFunction>(py::BoardSetTimeControl), METH_VARARGS, "Set the time control for the engine to use." },
         { nullptr, nullptr, 0, nullptr }
     };
 

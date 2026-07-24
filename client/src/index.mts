@@ -1,4 +1,4 @@
-import { Board, type TimeControl } from "./board.mjs";
+import { Board, getTimeControl, type TimeControl } from "./board.mjs";
 
 interface EngineListResponse {
     engines: string[];
@@ -86,14 +86,20 @@ async function main() {
             flipBoard = true;
         }
 
+        const [seconds, increment] = getTimeControl(timeControl);
         await retryApiCall({
             endpoint: "/game-start/",
             method: "POST",
             body: {
                 white_player: whitePlayer,
                 black_player: blackPlayer,
+                time_control: {
+                    seconds: seconds,
+                    increment: increment,
+                },
             },
         });
+
         await board.start({
             whitePlayer: whitePlayer,
             blackPlayer: blackPlayer,

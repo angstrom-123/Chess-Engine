@@ -283,7 +283,8 @@ select {
 
 .time-controls {
     display: grid;
-    grid-template-columns: repeat(auto-fit, 60px);
+    box-sizing: border-box;
+    grid-template-columns: repeat(auto-fit, 22.85%);
     gap: 10px;
 }
 

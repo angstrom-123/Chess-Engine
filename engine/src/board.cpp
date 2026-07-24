@@ -172,6 +172,11 @@ namespace libchess {
         }
     }
 
+    void Board::SetTimeControl(uint64_t seconds, uint64_t increment)
+    {
+        m_Searcher.SetTimeControl(seconds, increment);
+    }
+
     Move Board::Go(uint64_t moveMs)
     {
         // TODO: Draw by repetition, 50-move rule

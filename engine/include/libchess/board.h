@@ -12,6 +12,7 @@ namespace libchess {
     class Board {
     public:
         Board(const char *fen);
+        void SetTimeControl(uint64_t seconds, uint64_t increment);
         Move Go(uint64_t moveMs);
         void MakeMove(LongAlgebraicMove lan);
         bool HasError();

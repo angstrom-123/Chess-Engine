@@ -70,6 +70,7 @@ public:
     Searcher &operator=(Searcher &&) = default;
     Move FindBest(const BoardState &state, uint64_t ms);
     MoveData MakeMove(Move move, BoardState &state);
+    void SetTimeControl(uint64_t seconds, uint64_t increment);
 
 private:
     void UnmakeMove(MoveData moveData, BoardState& state);
@@ -81,6 +82,8 @@ private:
     void OrderMoves(Move bestMove, const AttackMoveBuffer& attacks, const QuietMoveBuffer& quiets, CombinedMoveBuffer& ordered);
 
 private:
+    uint64_t m_TimeControlSeconds{0};
+    uint64_t m_TimeControlIncrement{0};
     uint64_t m_NodesEvaluated{0};
     uint64_t m_NodesSearched{0};
     uint64_t m_NodesQuiesced{0};

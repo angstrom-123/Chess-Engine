@@ -77,11 +77,13 @@ class Jupiter(BaseEngine):
     board: Board | None = None 
 
     @override
-    def init(self, fen: str | None = None) -> None:
+    def init(self, tc: TimeControl, fen: str | None = None) -> None:
         if fen is None:
             self.board = Board()
         else:
             self.board = Board(fen)
+
+        self.board.set_time_control(tc.seconds, tc.increment)
 
     @override
     def go(self, msLeft: int) -> str:

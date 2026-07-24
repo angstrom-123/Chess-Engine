@@ -5,7 +5,7 @@ from typing import ClassVar, Literal
 from fastapi import FastAPI, Request, Response, status
 from pydantic import BaseModel, ConfigDict
 
-from server.engine import BaseEngine
+from server.engine import BaseEngine, TimeControl
 from server.players import engines
 
 # ==================== App Definitions ==================== 
@@ -27,9 +27,14 @@ state: State = State()
 
 NO_RESPONSE = Response(status_code=status.HTTP_200_OK, media_type="application/json", content="{}")
 
+class TimeControlInfo(BaseModel):
+    seconds: int 
+    increment: int
+
 class GameStartInfo(BaseModel):
     white_player: str
     black_player: str 
+    time_control: TimeControlInfo
 
 class FindMoveInfo(BaseModel):
     ms_left: int 
@@ -48,6 +53,7 @@ app = FastAPI()
 @app.post("/game-start/")
 async def game_start(request: Request):
     info: GameStartInfo = GameStartInfo.model_validate_json(await request.body())
+    tc: TimeControl = TimeControl(info.time_control.seconds, info.time_control.increment)
 
     if info.white_player != "Local":
         # Invalid white player
@@ -55,7 +61,7 @@ async def game_start(request: Request):
             return Response(status_code=status.HTTP_400_BAD_REQUEST)
 
         state.white_engine = [e for e in engines if e.name == info.white_player][0]()
-        state.white_engine.init()
+        state.white_engine.init(tc)
 
     if info.black_player != "Local":
         # Invalid black player
@@ -63,7 +69,7 @@ async def game_start(request: Request):
             return Response(status_code=status.HTTP_400_BAD_REQUEST)
 
         state.black_engine = [e for e in engines if e.name == info.black_player][0]()
-        state.black_engine.init()
+        state.black_engine.init(tc)
 
     return NO_RESPONSE
 

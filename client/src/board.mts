@@ -18,23 +18,25 @@ export type Color = (typeof Colors)[number];
 export const Pieces = [" ", "P", "p", "N", "n", "B", "b", "R", "r", "Q", "q", "K", "k"] as const;
 export type Piece = (typeof Pieces)[number];
 
-export const TimeControls = ["1", "3", "5", "1+1", "3+2", "5+5"] as const;
+export const TimeControls = ["0:30", "1", "5", "10", "1+1", "5+5", "10+10"] as const;
 export type TimeControl = (typeof TimeControls)[number];
 
 export function getTimeControl(timeControl: TimeControl): [number, number] {
     switch (timeControl) {
+        case "0:30":
+            return [30, 0];
         case "1":
             return [60, 0];
-        case "3":
-            return [180, 0];
+        case "5":
+            return [300, 0];
         case "5":
             return [300, 0];
         case "1+1":
             return [60, 1];
-        case "3+2":
-            return [180, 2];
         case "5+5":
             return [300, 5];
+        case "10+10":
+            return [600, 10];
         default:
             throw new Error("Bad time control");
     }

@@ -18,7 +18,11 @@ Move Searcher::FindBest(const BoardState& state, uint64_t msRemaining)
     auto startPoint = chrono::high_resolution_clock::now();
     uint64_t startMs = chrono::time_point_cast<chrono::milliseconds>(startPoint).time_since_epoch().count();
 
-    uint64_t targetTimeMs = msRemaining / std::max(10l, 50 - static_cast<int64_t>(state.halfMoves) / 2);
+    float m = std::max(10l, 50 - static_cast<int64_t>(state.halfMoves) / 2);
+    float i = std::max(0l, static_cast<int64_t>(m_TimeControlIncrement) - 1) * 1000;
+    float c = 1.0; // TODO: Set this complexity somehow, and implement search extensions
+    uint64_t targetTimeMs = ((msRemaining / m) * c) + i;
+
     uint64_t targetMs = startMs + targetTimeMs;
     std::cout << "Target search time: " << targetTimeMs << "ms" << std::endl;
 
@@ -327,6 +331,12 @@ int64_t Searcher::Quiesce(QuiesceInfo&& info)
     }
 
     return max;
+}
+
+void Searcher::SetTimeControl(uint64_t seconds, uint64_t increment)
+{
+    m_TimeControlSeconds = seconds;
+    m_TimeControlIncrement = increment;
 }
 
 MoveData Searcher::MakeMove(Move move, BoardState& state)

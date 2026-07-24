@@ -1,6 +1,6 @@
 from typing_extensions import override
 
-from server.engine import BaseEngine
+from server.engine import BaseEngine, TimeControl
 
 from libchess import Board
 
@@ -9,18 +9,19 @@ class Jupiter(BaseEngine):
     board: Board | None = None 
 
     @override
-    def init(self, fen: str | None = None) -> None:
+    def init(self, tc: TimeControl, fen: str | None = None) -> None:
         self.board = Board() if fen is None else Board(fen)
+        self.board.set_time_control(tc.seconds, tc.increment)
 
         if self.board.has_error():
             raise RuntimeError(f"[JUPITER] Error while initialising board: {self.board.get_error()}\nFEN: {fen}")
 
     @override
-    def go(self, msLeft: int) -> str:
+    def go(self, ms_left: int) -> str:
         if self.board is None:
             raise AttributeError("self.board is not initialised. Try calling init.")
 
-        move: str = self.board.go(msLeft)
+        move: str = self.board.go(ms_left)
         if self.board.has_error():
             raise RuntimeError(f"[JUPITER] Error while searching for move: {self.board.get_error()}\n{repr(self.board)}")
 
