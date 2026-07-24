@@ -528,23 +528,57 @@ export class Board {
     }
 
     private async loadSprites() {
-        function LoadSprite(url: string): Promise<HTMLImageElement> {
+        async function loadSprite(url: string): Promise<HTMLImageElement> {
+            // Inject missing fields for chrome
+            const response: Response = await fetch(url);
+            const rawSvg: string = await response.text();
+
+            const parser: DOMParser = new DOMParser();
+            const doc: Document = parser.parseFromString(rawSvg, "image/svg+xml");
+            const svgElement: HTMLElement = doc.documentElement;
+
+            const w: string = svgElement.getAttribute("width")?.replace("px", "") || "100";
+            const h: string = svgElement.getAttribute("height")?.replace("px", "") || "100";
+
+            if (!svgElement.getAttribute("viewbox")) {
+                svgElement.setAttribute("viewbox", `0 0 ${w} ${h}`);
+            }
+            svgElement.setAttribute("preserveAspectRatio", "xMidYMid meet");
+            svgElement.setAttribute("width", w);
+            svgElement.setAttribute("height", h);
+
+            const serialized: string = new XMLSerializer().serializeToString(doc);
+            const blob: Blob = new Blob([serialized], { type: "image/svg+xml" });
+            const blobUrl: string = URL.createObjectURL(blob);
+
+            // Load
             return new Promise((res, rej) => {
                 const svg: HTMLImageElement = new Image();
-                svg.onload = () => res(svg);
+                svg.onload = () => {
+                    // Set these for chrome
+                    svg.width = parseInt(w);
+                    svg.height = parseInt(h);
+                    svg.style.width = "100%";
+                    svg.style.height = "auto";
+                    svg.style.aspectRatio = `${svg.naturalWidth} / ${svg.naturalHeight}`;
+
+                    // Clean up
+                    URL.revokeObjectURL(blobUrl);
+                    res(svg);
+                };
                 svg.onerror = () => rej(new Error(`Failed to load svg: ${url}`));
                 svg.crossOrigin = "anonymous";
-                svg.src = url;
+                svg.src = blobUrl;
             });
         }
 
         // NOTE: Throws an error on failure - Use some fallbacks maybe?
-        this.sprites.set("p", await LoadSprite("./assets/sprites/b_pawn_svg_NoShadow.svg"));
-        this.sprites.set("n", await LoadSprite("./assets/sprites/b_knight_svg_NoShadow.svg"));
-        this.sprites.set("b", await LoadSprite("./assets/sprites/b_bishop_svg_NoShadow.svg"));
-        this.sprites.set("r", await LoadSprite("./assets/sprites/b_rook_svg_NoShadow.svg"));
-        this.sprites.set("q", await LoadSprite("./assets/sprites/b_queen_svg_NoShadow.svg"));
-        this.sprites.set("k", await LoadSprite("./assets/sprites/b_king_svg_NoShadow.svg"));
+        this.sprites.set("p", await loadSprite("./assets/sprites/b_pawn_svg_NoShadow.svg"));
+        this.sprites.set("n", await loadSprite("./assets/sprites/b_knight_svg_NoShadow.svg"));
+        this.sprites.set("b", await loadSprite("./assets/sprites/b_bishop_svg_NoShadow.svg"));
+        this.sprites.set("r", await loadSprite("./assets/sprites/b_rook_svg_NoShadow.svg"));
+        this.sprites.set("q", await loadSprite("./assets/sprites/b_queen_svg_NoShadow.svg"));
+        this.sprites.set("k", await loadSprite("./assets/sprites/b_king_svg_NoShadow.svg"));
 
         console.log("Sprites loaded successfully");
         this.spritesLoaded = true;
