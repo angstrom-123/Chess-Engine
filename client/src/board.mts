@@ -615,6 +615,8 @@ export class Board {
             ? (piece.toUpperCase() as Piece)
             : (piece.toLowerCase() as Piece);
 
+        this.drawPieces();
+
         this.promotion!.setPromotion(piece);
         await this.makeMoveApiCall!(this.promotion!.toLan());
         this.updateAttacks();
