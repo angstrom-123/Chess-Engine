@@ -81,6 +81,18 @@ uint8_t BitboardSet::Count(Color::Value color, Piece::Value piece) const
     return _mm_popcnt_u64(m_Bits[color][piece]);
 }
 
+Piece::Value BitboardSet::PieceInSquare(Color::Value color, uint8_t index) const 
+{
+    if (Has(index)) {
+        uint64_t bit = 1ul << index;
+        for (uint64_t piece = 0; piece < Piece::MAX_ENUM; piece++) {
+            if (m_Bits[color][piece] & bit)
+                return static_cast<Piece::Value>(piece);
+        }
+    }
+    return Piece::Invalid();
+}
+
 std::pair<Color::Value, Piece::Value> BitboardSet::PieceInSquare(uint8_t index) const
 {
     if (Has(index)) {

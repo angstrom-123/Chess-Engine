@@ -1,12 +1,11 @@
 #pragma once
 
-#include <cstddef>
 #include <utility>
 
-template<typename T, size_t capacity> class Buffer {
+template<typename T, std::size_t capacity> class Buffer {
 public:
     Buffer() = default;
-    Buffer(size_t size)
+    Buffer(std::size_t size)
         : m_Size{size} {};
 
     void PushBack(T &&value)
@@ -27,11 +26,11 @@ public:
     }
     void Clear()
     {
-        for (size_t i = 0; i < m_Size; i++)
+        for (std::size_t i = 0; i < m_Size; i++)
             m_Data[i].~T();
         m_Size = 0;
     }
-    void Resize(size_t size)
+    void Resize(std::size_t size)
     {
         m_Size = size;
     }
@@ -39,11 +38,11 @@ public:
     {
         return m_Data;
     }
-    size_t Size()
+    std::size_t Size()
     {
         return m_Size;
     }
-    size_t Capacity() const
+    std::size_t Capacity() const
     {
         return capacity;
     }
@@ -71,16 +70,16 @@ public:
     {
         return m_Data + m_Size;
     }
-    T& operator[](size_t i) 
+    T& operator[](std::size_t i) 
     { 
         return m_Data[i]; 
     }
-    const T& operator[](size_t i) const
+    const T& operator[](std::size_t i) const
     { 
         return m_Data[i]; 
     }
 
 private:
     T m_Data[capacity];
-    size_t m_Size{0};
+    std::size_t m_Size{0};
 };

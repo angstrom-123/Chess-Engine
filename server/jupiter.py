@@ -10,22 +10,27 @@ class Jupiter(BaseEngine):
 
     @override
     def init(self, fen: str | None = None) -> None:
-        if fen is None:
-            self.board = Board()
-        else:
-            self.board = Board(fen)
+        self.board = Board() if fen is None else Board(fen)
+
+        if self.board.has_error():
+            raise RuntimeError(f"[JUPITER] Error while initialising board: {self.board.get_error()}\nFEN: {fen}")
 
     @override
     def go(self, msLeft: int) -> str:
-        if self.board is not None:
-            return self.board.go(msLeft)
-        else:
+        if self.board is None:
             raise AttributeError("self.board is not initialised. Try calling init.")
+
+        move: str = self.board.go(msLeft)
+        if self.board.has_error():
+            raise RuntimeError(f"[JUPITER] Error while searching for move: {self.board.get_error()}\n{repr(self.board)}")
+
+        return move
 
     @override
     def move(self, move: str) -> None:
-        print(self.board.__repr__())
-        if self.board is not None:
-            self.board.make_move(move)
-        else:
-            raise AttributeError("self.board is not initialised. Try calling init.")
+        if self.board is None:
+            raise AttributeError("[JUPITER] self.board is not initialised. Try calling init.")
+
+        self.board.make_move(move)
+        if self.board.has_error():
+            raise RuntimeError(f"[JUPITER] Error while making move {move}: {self.board.get_error()}\n{repr(self.board)}")

@@ -22,6 +22,10 @@ set(SOURCES
     engine/src/attackTable.cpp
     engine/src/boardState.cpp
     engine/src/movegen.cpp
+    engine/src/pieceSquareTable.cpp
+    engine/src/zobrist.cpp
+    engine/src/rng.cpp
+    engine/src/transpositionTable.cpp
     engine/src/pythonModule.cpp
 )
 

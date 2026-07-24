@@ -9,7 +9,7 @@ from libchess import Board
 # board = libchess.Board()
 
 # Alternatively Arbitrary position FEN
-board: Board = Board("k2K4/8/8/8/8/8/2p5/8 b KQkq - 11 6")
+board: Board = Board("6k1/p7/1p6/8/7P/5K2/8/6q1 w - - 0 1")
 
 # ========== Check for errors ==========
 

@@ -9,7 +9,6 @@ uint8_t Difference(uint8_t a, uint8_t b);
 struct EngineState {
     typedef enum : uint8_t {
         OK,
-        SEARCHING_FOR_MOVE,
         ERROR,
         ERROR_MALFORMED_FEN_STRING,
         ERROR_BAD_FEN_POSITIONS,
@@ -17,7 +16,9 @@ struct EngineState {
         ERROR_BAD_FEN_CASTLING_RIGHTS,
         ERROR_BAD_FEN_EN_PASSANT_SQUARE,
         ERROR_BAD_FEN_HALF_MOVE_COUNTER,
-        ERROR_BAD_FEN_FULL_MOVE_COUNTER
+        ERROR_BAD_FEN_FULL_MOVE_COUNTER,
+        ERROR_MALFORMED_LAN_STRING,
+        ERROR_COULDNT_FIND_MOVE
     } Value;
 };
 
@@ -63,6 +64,18 @@ struct Piece {
             case QUEEN: return "Queen";
             case KING: return "King";
             default: return "Invalid";
+        }
+    }
+    static int64_t Evaluate(Value value) 
+    {
+        switch (value) {
+            case PAWN: return 100;
+            case KNIGHT: return 300;
+            case BISHOP: return 310;
+            case ROOK: return 500;
+            case QUEEN: return 975;
+            case KING: return 0;
+            default: return 0;
         }
     }
 };

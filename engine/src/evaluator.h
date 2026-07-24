@@ -1,8 +1,11 @@
 #pragma once 
 
 #include "boardState.h"
+#include "pieceSquareTable.h"
 #include <cstdint>
-const int64_t MATE_EVAL = 10000000;
+
+const int64_t MATE_EVAL = 100'000'000;
+const int64_t MATE_THRESOLD = 99'000'000;
 
 struct SEE {
     typedef enum {
@@ -14,10 +17,14 @@ struct SEE {
 
 class Evaluator {
 public:
-    static int64_t Evaluate(const BoardState& state);
+    Evaluator() = default;
+    int64_t Evaluate(const BoardState& state);
+    uint8_t GamePhase(const BoardState& state);
 
 private:
-    static int64_t MaterialBalance(const BoardState& state);
-    static int64_t CastlingRightIncentive(const BoardState& state);
-    static SEE::Value EvaluateStaticExchange(uint8_t index, const BoardState& state);
+    int64_t MaterialBalance(const BoardState& state);
+    int64_t PiecePositions(const BoardState& state);
+
+private:
+    PieceSquareTableManager m_PieceSquareTables{PieceSquareTableManager()};
 };

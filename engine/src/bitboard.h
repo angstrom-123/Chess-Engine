@@ -16,6 +16,7 @@ public:
     bool Has(Color::Value color, uint8_t index) const;
     bool Has(uint8_t index) const;
     uint8_t Count(Color::Value color, Piece::Value piece) const;
+    Piece::Value PieceInSquare(Color::Value color, uint8_t index) const;
     std::pair<Color::Value, Piece::Value> PieceInSquare(uint8_t index) const;
     Bitboard OccupancyMask(Color::Value color, Piece::Value piece) const;
     Bitboard OccupancyMask(Color::Value color) const;

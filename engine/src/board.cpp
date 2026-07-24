@@ -176,9 +176,9 @@ namespace libchess {
     {
         // TODO: Draw by repetition, 50-move rule
 
-        m_InternalState = EngineState::SEARCHING_FOR_MOVE;
-
         Move bestMove = m_Searcher.FindBest(m_State, moveMs);
+        if (!Move::IsValid(bestMove))
+            m_InternalState = EngineState::ERROR_COULDNT_FIND_MOVE;
 
         return bestMove;
     }
@@ -186,6 +186,10 @@ namespace libchess {
     void Board::MakeMove(LongAlgebraicMove lan)
     {
         Move move = Move::FromLAN(lan, m_State.pieces);
+        if (!Move::IsValid(move)) {
+            m_InternalState = EngineState::ERROR_MALFORMED_LAN_STRING;
+            return;
+        }
 
         m_Searcher.MakeMove(move, m_State);
 
@@ -217,6 +221,10 @@ namespace libchess {
                 return "Bad half-move counter in FEN string";
             case EngineState::ERROR_BAD_FEN_FULL_MOVE_COUNTER:
                 return "Bad full-move counter in FEN string";
+            case EngineState::ERROR_MALFORMED_LAN_STRING:
+                return "Malformed LAN string";
+            case EngineState::ERROR_COULDNT_FIND_MOVE:
+                return "Couldn't find move";
             default:
                 return nullptr;
         }

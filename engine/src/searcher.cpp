@@ -2,6 +2,7 @@
 #include "move.h"
 #include "evaluator.h"
 #include "movegen.h"
+#include "transpositionTable.h"
 
 #include <chrono>
 #include <cmath>
@@ -17,25 +18,30 @@ Move Searcher::FindBest(const BoardState& state, uint64_t msRemaining)
     auto startPoint = chrono::high_resolution_clock::now();
     uint64_t startMs = chrono::time_point_cast<chrono::milliseconds>(startPoint).time_since_epoch().count();
 
-    uint64_t targetTimeMs = msRemaining / std::max(10ul, static_cast<uint64_t>(50 - std::floor(state.halfMoves / 2)));
+    uint64_t targetTimeMs = msRemaining / std::max(10l, 50 - static_cast<int64_t>(state.halfMoves) / 2);
     uint64_t targetMs = startMs + targetTimeMs;
+    std::cout << "Target search time: " << targetTimeMs << "ms" << std::endl;
 
     BoardState workingState(state);
+    m_SearchAborted = false;
 
     m_NodesSearched = 0;
+    m_NodesQuiesced = 0;
     m_NodesEvaluated = 0;
-    m_SearchAborted = false;
+    m_TranspositionHits = 0;
 
     // Iterative deepening
     Move bestMove = Move::Invalid();
     uint8_t depth = 0;
     while (++depth) {
         // Only check termination condition every 2048 nodes to save expensive clock calls
-        if (m_NodesSearched & 2048) {
+        if ((m_NodesSearched & 2047) == 0) {
             auto nowPoint = chrono::high_resolution_clock::now();
             uint64_t nowMs = chrono::time_point_cast<chrono::milliseconds>(nowPoint).time_since_epoch().count();
-            if (nowMs >= targetMs)
+            if (nowMs >= targetMs) {
+                std::cout << "Search aborted" << std::endl;
                 break;
+            }
         }
 
         AttackMoveBuffer attackMoves;
@@ -46,9 +52,7 @@ Move Searcher::FindBest(const BoardState& state, uint64_t msRemaining)
 
         CombinedMoveBuffer moves;
         OrderMoves(bestMove, attackMoves, quietMoves, moves);
-
-        LineBuffer principalVariation(depth);
-        LineBuffer localLine(depth);
+        std::cout << "Found " << moves.Size() << " moves at root" << std::endl;
 
         Move depthBestMove = Move::Invalid();
         int64_t bestScore = -INT64_MAX;
@@ -64,14 +68,12 @@ Move Searcher::FindBest(const BoardState& state, uint64_t msRemaining)
             }
             m_NodesEvaluated++;
 
-            localLine.Resize(0);
             int64_t score = -Search((SearchInfo) {
                 .state = workingState, 
                 .alpha = -beta, 
                 .beta = -alpha, 
                 .depth = static_cast<uint8_t>(depth - 1), 
                 .ply = 1,
-                .pv = localLine,
                 .targetMs = targetMs
             });
             UnmakeMove(moveData, workingState);
@@ -85,17 +87,14 @@ Move Searcher::FindBest(const BoardState& state, uint64_t msRemaining)
                 depthBestMove = move;
                 if (score > alpha)
                     alpha = score;
-
-                principalVariation[0] = move;
-                for (uint8_t i = 0; i < localLine.Size(); i++)
-                    principalVariation[i + 1] = localLine[i];
-                principalVariation.Resize(localLine.Size() + 1);
             }
         }
 
         // Ran out of time - Incomplete search so don't save result
-        if (m_SearchAborted)
+        if (m_SearchAborted) {
+            std::cout << "Search aborted" << std::endl;
             break;
+        }
 
         // Checkmate or stalemate
         if (!Move::IsValid(depthBestMove)) {
@@ -103,16 +102,36 @@ Move Searcher::FindBest(const BoardState& state, uint64_t msRemaining)
             break;
         }
 
-        // Show principal variation at this depth
+        // Save best move
+        bestMove = depthBestMove;
+
+        // Reconstruct and show principal variation at this depth
+        LineBuffer principalVariation;
+        principalVariation.PushBack(bestMove);
+
+        BoardState reconstructState(workingState);
+        MakeMove(bestMove, reconstructState);
+        for (uint8_t i = 1; i < depth; i++) { // Already saved the first move
+            TableEntry entry = m_TranspositionTable.Get(std::forward<const BoardState>(reconstructState));
+            if (!entry.IsValid())
+                break;
+
+            if (!Move::IsValid(entry.bestMove))
+                break;
+
+            MoveData moveData = MakeMove(entry.bestMove, reconstructState);
+            if (!WasLegal(moveData, std::forward<const BoardState>(reconstructState))) {
+                UnmakeMove(moveData, reconstructState);
+                break;
+            }
+
+            principalVariation.PushBack(entry.bestMove);
+        }
         std::cout << "Principal Variation (depth=" << static_cast<int>(depth) << "): ";
         for (const auto move : principalVariation)
             std::cout << move.ToLAN().chars << ", ";
         std::cout << std::endl;
-
-        bestMove = depthBestMove;
     }
-
-    // TODO: Optimisation from iterative deepening?
     
     auto endPoint = chrono::high_resolution_clock::now();
     uint64_t endMs = chrono::time_point_cast<chrono::milliseconds>(endPoint).time_since_epoch().count();
@@ -123,6 +142,7 @@ Move Searcher::FindBest(const BoardState& state, uint64_t msRemaining)
     std::cout << "Searched " << m_NodesSearched << " nodes in " << msTaken << "ms (" << std::setprecision(3) << mnpsSearch << " million nps)" <<  std::endl;
     std::cout << "  of those Quiesced " << m_NodesQuiesced << " nodes" << std::endl;
     std::cout << "Evaluated " << m_NodesEvaluated << " nodes in " << msTaken << "ms (" << std::setprecision(3) << mnpsEvaluate << " million nps)" <<  std::endl;
+    std::cout << "Hit " << m_TranspositionHits << " transpositions (" << m_TranspositionTable.OccupiedMiB() << "MiB)" << std::endl;
 
     return bestMove;
 }
@@ -130,7 +150,7 @@ Move Searcher::FindBest(const BoardState& state, uint64_t msRemaining)
 int64_t Searcher::Search(SearchInfo&& info)
 {
     // Only check termination condition every 2048 nodes to save expensive clock calls
-    if (m_NodesSearched & 2048) {
+    if ((m_NodesSearched & 2047) == 0) {
         auto nowPoint = chrono::high_resolution_clock::now();
         uint64_t nowMs = chrono::time_point_cast<chrono::milliseconds>(nowPoint).time_since_epoch().count();
         if (nowMs >= info.targetMs) {
@@ -139,19 +159,45 @@ int64_t Searcher::Search(SearchInfo&& info)
         }
     }
 
-    info.pv.Resize(0);
+    // Return early if already searched this position to >= depth, else get best move so far
+    Move refutationMove = Move::Invalid();
+    TableEntry lookup = m_TranspositionTable.Get(std::forward<const BoardState>(info.state));
+    if (lookup.IsValid()) {
+        refutationMove = lookup.bestMove;
+
+        m_TranspositionHits++;
+
+        if (lookup.depth >= info.depth) {
+            int64_t score = lookup.score;
+
+            if (score > MATE_THRESOLD) 
+                score += info.ply;
+
+            if (score < -MATE_THRESOLD) 
+                score -= info.ply;
+
+            if (lookup.nodeType == NodeType::LOWER_BOUND)
+                info.alpha = std::max(info.alpha, score);
+
+            if (lookup.nodeType == NodeType::UPPER_BOUND)
+                info.beta = std::min(info.beta, score);
+
+            if (info.alpha >= info.beta)
+                return score;
+        }
+    }
 
     if (info.depth == 0) 
         return Quiesce((QuiesceInfo) {
             .state = info.state, 
             .alpha = info.alpha, 
             .beta = info.beta, 
-            .ply = 0,
+            .ply = info.ply,
             .targetMs = info.targetMs
         });
 
     int64_t max = -INT64_MAX;
-    LineBuffer localLine(info.depth);
+    Move bestMove = Move::Invalid();
 
     AttackMoveBuffer attackMoves;
     movegen::FindAttacks(std::forward<const BoardState>(info.state), m_AttackTable, attackMoves);
@@ -160,7 +206,9 @@ int64_t Searcher::Search(SearchInfo&& info)
     movegen::FindQuiets(std::forward<const BoardState>(info.state), m_AttackTable, quietMoves);
 
     CombinedMoveBuffer moves;
-    OrderMoves(Move::Invalid(), attackMoves, quietMoves, moves);
+    OrderMoves(refutationMove, attackMoves, quietMoves, moves);
+
+    int64_t originalAlpha = info.alpha; // For classifying the node type at the end
 
     for (Move move : moves) {
         m_NodesSearched++;
@@ -171,42 +219,56 @@ int64_t Searcher::Search(SearchInfo&& info)
         }
         m_NodesEvaluated++;
 
-        localLine.Resize(0);
-        int64_t score = -Search(SearchInfo::Next(std::forward<SearchInfo&&>(info), localLine));
+        int64_t score = -Search(SearchInfo::Next(info));
         UnmakeMove(moveData, info.state);
+
+        if (m_SearchAborted) 
+            return 0;
 
         if (score > max) {
             max = score;
-            if (score > info.alpha) {
-                info.alpha = score;
+            bestMove = move;
 
-                info.pv[0] = move;
-                for (uint8_t i = 0; i < localLine.Size(); i++)
-                    info.pv[i + 1] = localLine[i];
-                info.pv.Resize(localLine.Size() + 1);
-            }
+            // Upper bound
+            if (score > info.alpha)
+                info.alpha = score;
         }
 
-        if (score >= info.beta)
+        // Lower bound
+        if (score >= info.beta) {
+            m_TranspositionTable.Save(info.state, (const TableEntryInfo) {
+                .score = max,
+                .bestMove = bestMove,
+                .depth = info.depth,
+                .nodeType = NodeType::LOWER_BOUND
+            });
             return max;
+        }
     }
 
     if (max == -INT64_MAX) {
-        // Checkmate
         Bitboard king = info.state.pieces.OccupancyMask(info.state.turn, Piece::KING);
         if (SquareUnderAttack(king, Color::Opposite(info.state.turn), info.state)) 
-            return -MATE_EVAL + info.ply;
-
-        // Stalemate
-        return 0;
+            max = -MATE_EVAL + info.ply; // Checkmate
+        else 
+            max = 0; // Stalemate
     }
+    
+    // Upper bound if raised alpha, else exact
+    m_TranspositionTable.Save(info.state, (const TableEntryInfo) {
+        .score = max,
+        .bestMove = bestMove,
+        .depth = info.depth,
+        .nodeType = (max > originalAlpha) ? NodeType::EXACT : NodeType::UPPER_BOUND
+    });
+
     return max;
 }
 
 int64_t Searcher::Quiesce(QuiesceInfo&& info)
 {
     // Only check termination condition every 2048 nodes to save expensive clock calls
-    if (m_NodesSearched & 2048) {
+    if ((m_NodesSearched & 2047) == 0) {
         auto nowPoint = chrono::high_resolution_clock::now();
         uint64_t nowMs = chrono::time_point_cast<chrono::milliseconds>(nowPoint).time_since_epoch().count();
         if (nowMs >= info.targetMs) {
@@ -215,7 +277,7 @@ int64_t Searcher::Quiesce(QuiesceInfo&& info)
         }
     }
 
-    int64_t staticEval = Evaluator::Evaluate(info.state);
+    int64_t staticEval = m_Eval.Evaluate(info.state);
 
     // Stand Pat
     int64_t max = staticEval;
@@ -226,7 +288,22 @@ int64_t Searcher::Quiesce(QuiesceInfo&& info)
 
     AttackMoveBuffer attackMoves;
     movegen::FindAttacks(info.state, m_AttackTable, attackMoves);
+
+    // TODO: Move ordering here
+
+    const uint8_t phase = m_Eval.GamePhase(std::forward<const BoardState>(info.state)) < 90;
+
     for (Move move : attackMoves) {
+        // Delta pruning
+        if (phase < 85) { // Don't prune in late endgames
+            const int64_t DELTA_MARGIN = 200;
+            if (!Piece::IsValid(move.promote)) { // Don't prune promotions
+                Piece::Value capture = info.state.pieces.PieceInSquare(Color::Opposite(info.state.turn), move.to);
+                if (staticEval + Piece::Evaluate(capture) + DELTA_MARGIN < info.alpha)
+                    continue;
+            }
+        }
+
         m_NodesSearched++;
         m_NodesQuiesced++;
         MoveData moveData = MakeMove(move, info.state);
@@ -236,7 +313,7 @@ int64_t Searcher::Quiesce(QuiesceInfo&& info)
         }
         m_NodesEvaluated++;
 
-        int64_t score = -Quiesce(QuiesceInfo::Next(std::forward<QuiesceInfo&&>(info)));
+        int64_t score = -Quiesce(QuiesceInfo::Next(info));
         UnmakeMove(moveData, info.state);
 
         if (score >= info.beta)
@@ -319,10 +396,9 @@ MoveData Searcher::MakeMove(Move move, BoardState& state)
     }
 
     // Update en passant square if double pawn push
+    state.enPassantIndex = UINT8_MAX;
     if (move.piece == Piece::PAWN && Difference(move.from, move.to) == 16)
         state.enPassantIndex = (friendly == Color::WHITE) ? move.to + 8 : move.to - 8;
-    else 
-        state.enPassantIndex = UINT8_MAX;
 
     state.turn = enemy;
     state.halfMoves++;

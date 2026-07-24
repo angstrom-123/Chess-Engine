@@ -3,9 +3,11 @@
 #include "boardState.h"
 #include "buffer.h"
 #include "core.h"
+#include "evaluator.h"
 #include "move.h"
 #include "attackTable.h"
 #include "movegen.h"
+#include "transpositionTable.h"
 
 const uint64_t MAX_PLY = 32;
 using LineBuffer = Buffer<Move, MAX_PLY>;
@@ -25,10 +27,9 @@ struct SearchInfo {
     int64_t beta; 
     uint8_t depth; 
     uint8_t ply; 
-    LineBuffer& pv;
     uint64_t targetMs;
 
-    static SearchInfo Next(SearchInfo&& current, LineBuffer& pv)
+    static SearchInfo Next(SearchInfo& current)
     {
         return (SearchInfo) { 
             .state = current.state,
@@ -36,7 +37,6 @@ struct SearchInfo {
             .beta = -current.alpha,
             .depth = static_cast<uint8_t>(current.depth - 1),
             .ply = static_cast<uint8_t>(current.ply + 1),
-            .pv = std::forward<LineBuffer&>(pv),
             .targetMs = current.targetMs
         };
     }
@@ -49,7 +49,7 @@ struct QuiesceInfo {
     uint8_t ply;
     uint64_t targetMs;
 
-    static QuiesceInfo Next(QuiesceInfo&& current)
+    static QuiesceInfo Next(QuiesceInfo& current)
     {
         return (QuiesceInfo) {
             .state = current.state,
@@ -63,13 +63,19 @@ struct QuiesceInfo {
 
 class Searcher {
 public:
-    Move FindBest(const BoardState& state, uint64_t ms);
-    MoveData MakeMove(Move move, BoardState& state);
+    Searcher() = default;
+    Searcher(const Searcher &) = default;
+    Searcher(Searcher &&) = default;
+    Searcher &operator=(const Searcher &) = default;
+    Searcher &operator=(Searcher &&) = default;
+    Move FindBest(const BoardState &state, uint64_t ms);
+    MoveData MakeMove(Move move, BoardState &state);
 
 private:
     void UnmakeMove(MoveData moveData, BoardState& state);
     int64_t Search(SearchInfo&& info);
     int64_t Quiesce(QuiesceInfo&& info);
+    bool SquareUnderAttackBy(uint64_t bit, Color::Value color, Piece::Value piece, const BoardState& state);
     bool SquareUnderAttack(uint64_t bit, Color::Value color, const BoardState& state);
     bool WasLegal(MoveData moveData, const BoardState& state);
     void OrderMoves(Move bestMove, const AttackMoveBuffer& attacks, const QuietMoveBuffer& quiets, CombinedMoveBuffer& ordered);
@@ -78,6 +84,9 @@ private:
     uint64_t m_NodesEvaluated{0};
     uint64_t m_NodesSearched{0};
     uint64_t m_NodesQuiesced{0};
+    uint64_t m_TranspositionHits{0};
     bool m_SearchAborted{false};
     AttackTable m_AttackTable{AttackTable()};
+    TranspositionTable m_TranspositionTable{TranspositionTable()};
+    Evaluator m_Eval{Evaluator()};
 };

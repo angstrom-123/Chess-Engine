@@ -136,9 +136,10 @@ namespace movegen {
     {
         const uint64_t backRankMask = 0xFF000000000000FF; // Same for both colors because pawns can't go back
 
+        uint64_t enPassantBit = (state.enPassantIndex != UINT8_MAX) ? 1ul << state.enPassantIndex : 0;
         Bitboard attacks = table.GetAttacks(index, Piece::PAWN, state.turn, state.pieces.OccupancyMask());
         attacks &= ~state.pieces.OccupancyMask(state.turn);
-        attacks &= state.pieces.OccupancyMask(Color::Opposite(state.turn));
+        attacks &= (state.pieces.OccupancyMask(Color::Opposite(state.turn)) | enPassantBit);
         
         while (attacks) {
             uint8_t toIndex = _tzcnt_u64(attacks);
@@ -176,9 +177,8 @@ namespace movegen {
             } else {
                 quietBuffer.EmplaceBack(index, toIndex, Piece::PAWN, Piece::Invalid());
                 toIndex += delta;
-                if (((1ul << index) & homeSquareMask) && !state.pieces.Has(toIndex)) {
+                if (((1ul << index) & homeSquareMask) && !state.pieces.Has(toIndex))
                     quietBuffer.EmplaceBack(index, toIndex, Piece::PAWN, Piece::Invalid());
-                }
             }
         }
     }
