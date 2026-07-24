@@ -15,7 +15,7 @@ A chess engine written in C++ with a Python 3 API.
 
 ### Build library
 ```shell
-mkdir build && cs build 
+mkdir build && cd build 
 cmake .. -DCMAKE_BUILD_TYPE=Release 
 make
 cd ..
